@@ -1,0 +1,234 @@
+<style>
+  #tblHistorical th,
+  #tblHistorical td {
+    vertical-align: middle;
+  }
+</style>
+
+<div class="card card-custom p-3 mb-4">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Mode Periode</label>
+      <select
+        id="histMode"
+        class="form-select form-select-sm"
+        onchange="loadHistoricalData()"
+      >
+        <option value="DAILY" selected>Harian (Daily)</option>
+        <option value="MONTHLY">Bulanan (Monthly)</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Mulai Tanggal</label>
+      <input
+        type="date"
+        id="histStartDate"
+        class="form-control form-control-sm"
+        onchange="loadHistoricalData()"
+      />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Sampai Tanggal</label>
+      <input
+        type="date"
+        id="histEndDate"
+        class="form-control form-control-sm"
+        onchange="loadHistoricalData()"
+      />
+    </div>
+    <div class="col-md-3">
+      <button
+        class="btn btn-danger btn-sm w-100"
+        onclick="loadHistoricalData()"
+      >
+        <i class="fa-solid fa-filter me-1"></i> Apply Filter
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card card-custom p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold text-dark mb-0">
+          <i class="fa-solid fa-chart-line text-danger me-2"></i>Historical
+          Readiness Rate Trend (%)
+        </h6>
+        <div class="btn-group btn-group-sm" role="group">
+          <input
+            type="radio"
+            class="btn-check"
+            name="histChartCat"
+            id="btnCatALL"
+            value="ALL"
+            checked
+            onchange="renderHistoricalChart()"
+          />
+          <label class="btn btn-outline-danger" for="btnCatALL">ALL</label>
+          <input
+            type="radio"
+            class="btn-check"
+            name="histChartCat"
+            id="btnCatLIB"
+            value="LIB"
+            onchange="renderHistoricalChart()"
+          />
+          <label class="btn btn-outline-danger" for="btnCatLIB">LIB</label>
+          <input
+            type="radio"
+            class="btn-check"
+            name="histChartCat"
+            id="btnCatADD"
+            value="ADD"
+            onchange="renderHistoricalChart()"
+          />
+          <label class="btn btn-outline-danger" for="btnCatADD">ADD</label>
+        </div>
+      </div>
+      <div id="chartHistTrend" style="min-height: 320px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card card-custom p-3">
+  <h6 class="fw-bold text-dark mb-3">
+    <i class="fa-solid fa-table text-danger me-2"></i>Rincian Breakdown
+    Historikal Status Ready
+  </h6>
+  <div class="table-responsive">
+    <table
+      id="tblHistorical"
+      class="table table-hover table-bordered w-100 align-middle small"
+    >
+      <thead class="table-dark">
+        <tr>
+          <th rowspan="2" class="align-middle text-center">Periode</th>
+          <th colspan="3" class="text-center bg-danger">Readiness Rate (%)</th>
+          <th colspan="4" class="text-center bg-secondary">
+            Total Item ALL (A/B/C/D)
+          </th>
+          <th colspan="4" class="text-center bg-dark">
+            Total Item LIB (A/B/C/D)
+          </th>
+          <th colspan="4" class="text-center bg-secondary">
+            Total Item ADD (A/B/C/D)
+          </th>
+        </tr>
+        <tr>
+          <th class="text-center bg-danger">ALL</th>
+          <th class="text-center bg-danger">LIB</th>
+          <th class="text-center bg-danger">ADD</th>
+          <th class="text-center">A</th>
+          <th class="text-center">B</th>
+          <th class="text-center">C</th>
+          <th class="text-center">D</th>
+          <th class="text-center">A</th>
+          <th class="text-center">B</th>
+          <th class="text-center">C</th>
+          <th class="text-center">D</th>
+          <th class="text-center">A</th>
+          <th class="text-center">B</th>
+          <th class="text-center">C</th>
+          <th class="text-center">D</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let chartHistTrendInstance = null;
+  let dataTableHist = null;
+  let rawHistData = null;
+
+  function loadHistoricalData() {
+    showLoading('Memuat Histori Readiness...');
+    let mode = $('#histMode').val();
+    let sDate = $('#histStartDate').val();
+    let eDate = $('#histEndDate').val();
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        hideLoading();
+        rawHistData = res;
+        renderHistoricalChart();
+
+        if (dataTableHist) dataTableHist.destroy();
+
+        let tbody = $('#tblHistorical tbody').empty();
+        res.tableRows.forEach((r) => {
+          tbody.append(`
+            <tr>
+              <td class="fw-bold text-center">${r.period}</td>
+              <td class="text-center fw-bold text-danger">${r.all.readiness}%</td>
+              <td class="text-center fw-bold text-primary">${r.lib.readiness}%</td>
+              <td class="text-center fw-bold text-success">${r.add.readiness}%</td>
+              
+              <td class="text-center">${r.all.A}</td><td class="text-center">${r.all.B}</td>
+              <td class="text-center">${r.all.C}</td><td class="text-center">${r.all.D}</td>
+              
+              <td class="text-center">${r.lib.A}</td><td class="text-center">${r.lib.B}</td>
+              <td class="text-center">${r.lib.C}</td><td class="text-center">${r.lib.D}</td>
+              
+              <td class="text-center">${r.add.A}</td><td class="text-center">${r.add.B}</td>
+              <td class="text-center">${r.add.C}</td><td class="text-center">${r.add.D}</td>
+            </tr>
+          `);
+        });
+
+        dataTableHist = $('#tblHistorical').DataTable({
+          pageLength: 10,
+          responsive: true,
+          order: [[0, 'desc']],
+        });
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat histori readiness: ' + err.message);
+      })
+      .getHistoricalReadinessData(mode, sDate, eDate);
+  }
+
+  function renderHistoricalChart() {
+    if (!rawHistData) return;
+
+    let selectedCat = $('input[name="histChartCat"]:checked').val() || 'ALL';
+    let periods = rawHistData.periods;
+
+    let readinessSeries = periods.map((p) =>
+      Number(rawHistData.groupedData[p][selectedCat].readiness)
+    );
+    let statusASeries = periods.map(
+      (p) => rawHistData.groupedData[p][selectedCat].A
+    );
+    let statusBSeries = periods.map(
+      (p) => rawHistData.groupedData[p][selectedCat].B
+    );
+
+    let options = {
+      series: [
+        { name: 'Readiness Rate (%)', type: 'line', data: readinessSeries },
+        { name: 'Status A (Max)', type: 'column', data: statusASeries },
+        { name: 'Status B (Min)', type: 'column', data: statusBSeries },
+      ],
+      chart: { height: 350, type: 'line', toolbar: { show: true } },
+      stroke: { width: [4, 0, 0], curve: 'smooth' },
+      colors: ['#dc3545', '#198754', '#0d6efd'],
+      xaxis: { categories: periods },
+      yaxis: [
+        { title: { text: 'Readiness (%)' }, min: 0, max: 100 },
+        { opposite: true, title: { text: 'Total Items' } },
+      ],
+      dataLabels: { enabled: true, enabledOnSeries: [0] },
+    };
+
+    if (chartHistTrendInstance) chartHistTrendInstance.destroy();
+    chartHistTrendInstance = new ApexCharts(
+      document.querySelector('#chartHistTrend'),
+      options
+    );
+    chartHistTrendInstance.render();
+  }
+</script>

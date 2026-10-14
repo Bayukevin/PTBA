@@ -1,0 +1,207 @@
+<style>
+  .kpi-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #6c757d;
+  }
+  .kpi-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+  }
+</style>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card card-custom p-3 border-start border-4 border-primary">
+      <div class="kpi-title">Total Revenue</div>
+      <div class="kpi-value text-primary" id="kpiRevenue">Rp 0</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-custom p-3 border-start border-4 border-success">
+      <div class="kpi-title">Total Gross Profit</div>
+      <div class="kpi-value text-success" id="kpiGP">Rp 0</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-custom p-3 border-start border-4 border-info">
+      <div class="kpi-title">Gross Profit Margin (%)</div>
+      <div class="kpi-value text-info" id="kpiGPMargin">0%</div>
+    </div>
+  </div>
+</div>
+
+<div class="card card-custom p-3 mb-4">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Mulai Tanggal</label>
+      <input
+        type="date"
+        id="txStartDate"
+        class="form-control form-control-sm"
+        onchange="loadTransactionData()"
+      />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Sampai Tanggal</label>
+      <input
+        type="date"
+        id="txEndDate"
+        class="form-control form-control-sm"
+        onchange="loadTransactionData()"
+      />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Filter Produk</label>
+      <select
+        id="txFilterProduct"
+        class="form-select form-select-sm"
+        onchange="loadTransactionData()"
+      >
+        <option value="ALL">Semua Produk</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button
+        class="btn btn-danger btn-sm w-100"
+        onclick="loadTransactionData()"
+      >
+        Filter Data
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-7">
+    <div class="card card-custom p-3">
+      <h6 class="fw-bold text-dark mb-3">Trend Penjualan & Margin Bulanan</h6>
+      <div id="chartTxTrend" style="min-height: 315px"></div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card card-custom p-3">
+      <h6 class="fw-bold text-dark mb-3">Kontribusi Penjualan per Produk</h6>
+      <div id="chartProductShare" style="min-height: 315px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let chartTxTrendInstance = null;
+  let chartProductShareInstance = null;
+
+  // Helper format rupiah jika belum didefinisikan global
+  function formatIDR(val) {
+    if (val === null || val === undefined || isNaN(val)) return 'Rp 0';
+    return 'Rp ' + Number(val).toLocaleString('id-ID');
+  }
+
+  function loadTransactionData() {
+    showLoading('Memuat Analytics Penjualan...');
+    let sDate = $('#txStartDate').val() || '';
+    let eDate = $('#txEndDate').val() || '';
+    let prod = $('#txFilterProduct').val() || 'ALL';
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res || !res.kpi) {
+          hideLoading();
+          alert('Data transaksi kosong atau format tidak sesuai.');
+          return;
+        }
+
+        // Update KPI
+        $('#kpiRevenue').text(formatIDR(res.kpi.totalRevenue));
+        $('#kpiGP').text(formatIDR(res.kpi.totalGP));
+        $('#kpiGPMargin').text((res.kpi.gpMargin || 0) + '%');
+
+        // Populate dropdown filter produk
+        if (
+          res.productContribution &&
+          $('#txFilterProduct option').length <= 1
+        ) {
+          Object.keys(res.productContribution).forEach((p) => {
+            $('#txFilterProduct').append(`<option value="${p}">${p}</option>`);
+          });
+        }
+
+        // --- Render Line Chart (Trend) ---
+        let months = res.monthlyTrend
+          ? Object.keys(res.monthlyTrend).sort()
+          : [];
+        let revs = months.map((m) => res.monthlyTrend[m].rev || 0);
+        let gps = months.map((m) => res.monthlyTrend[m].gp || 0);
+
+        let optionsTrend = {
+          series: [
+            { name: 'Revenue', data: revs },
+            { name: 'Gross Profit', data: gps },
+          ],
+          chart: { type: 'line', height: 300, toolbar: { show: false } },
+          colors: ['#0d6efd', '#198754'],
+          stroke: { curve: 'smooth', width: 3 },
+          xaxis: { categories: months },
+          yaxis: {
+            labels: {
+              formatter: function (val) {
+                return (val / 1000000).toFixed(0) + ' Jt';
+              },
+            },
+          },
+        };
+
+        if (chartTxTrendInstance) chartTxTrendInstance.destroy();
+        chartTxTrendInstance = new ApexCharts(
+          document.querySelector('#chartTxTrend'),
+          optionsTrend
+        );
+        chartTxTrendInstance.render();
+
+        // --- Render Donut Chart (Product Share) ---
+        let pNames = res.productContribution
+          ? Object.keys(res.productContribution)
+          : [];
+        let pVals = res.productContribution
+          ? Object.values(res.productContribution)
+          : [];
+
+        let optionsPie = {
+          series: pVals,
+          labels: pNames,
+          chart: { type: 'donut', height: 300 },
+        };
+
+        if (chartProductShareInstance) chartProductShareInstance.destroy();
+        chartProductShareInstance = new ApexCharts(
+          document.querySelector('#chartProductShare'),
+          optionsPie
+        );
+        chartProductShareInstance.render();
+
+        // Jeda menutup loading agar ApexCharts selesai membentuk canvas
+        setTimeout(function () {
+          hideLoading();
+        }, 150);
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat Analytics Penjualan: ' + err.message);
+      })
+      .getTransactionData(sDate, eDate, prod, 'ALL');
+  }
+
+  // Inisialisasi otomatis saat komponen ini selesai dimuat
+  (function initTransactionPage() {
+    if (
+      window.jQuery &&
+      typeof ApexCharts !== 'undefined' &&
+      typeof showLoading === 'function'
+    ) {
+      loadTransactionData();
+    } else {
+      setTimeout(initTransactionPage, 50);
+    }
+  })();
+</script>

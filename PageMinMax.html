@@ -1,0 +1,165 @@
+<style>
+  #tblMinMaxCompare th,
+  #tblMinMaxCompare td {
+    vertical-align: middle;
+  }
+</style>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 d-flex justify-content-between align-items-center">
+    <div>
+      <h5 class="fw-bold mb-0 text-dark">
+        <i class="fa-solid fa-code-compare text-danger me-2"></i>Min/Max
+        Parameter Comparison Analysis
+      </h5>
+      <p class="text-muted extra-small mb-0">
+        Membandingkan batas stok Min-Max yang digunakan saat ini dengan hasil
+        rekomendasi analisis ABC-XYZ.
+      </p>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="applyMinMaxToMaster()">
+      <i class="fa-solid fa-check-double me-1"></i> Apply All Suggestions to
+      Master
+    </button>
+  </div>
+</div>
+
+<div class="card card-custom p-3">
+  <div class="table-responsive">
+    <table
+      id="tblMinMaxCompare"
+      class="table table-hover table-bordered w-100 align-middle small"
+    >
+      <thead class="table-dark">
+        <tr>
+          <th rowspan="2" class="align-middle text-center">Material Utama</th>
+          <th rowspan="2" class="align-middle text-center">Deskripsi</th>
+          <th rowspan="2" class="align-middle text-center">Indikator</th>
+          <th colspan="2" class="text-center bg-secondary">Existing System</th>
+          <th colspan="2" class="text-center bg-danger">ABC-XYZ Suggestion</th>
+          <th colspan="2" class="text-center bg-dark">Deviasi (Diff)</th>
+          <th rowspan="2" class="align-middle text-center">
+            Rekomendasi Parameter
+          </th>
+        </tr>
+        <tr>
+          <th class="text-center bg-secondary">Min</th>
+          <th class="text-center bg-secondary">Max</th>
+          <th class="text-center bg-danger">Min</th>
+          <th class="text-center bg-danger">Max</th>
+          <th class="text-center bg-dark">Min Dev</th>
+          <th class="text-center bg-dark">Max Dev</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let dataTableMinMax = null;
+
+  function loadMinMaxComparison() {
+    showLoading('Memuat Komparasi Min-Max...');
+
+    google.script.run
+      .withSuccessHandler(function (data) {
+        if ($.fn.DataTable.isDataTable('#tblMinMaxCompare')) {
+          $('#tblMinMaxCompare').DataTable().destroy();
+        }
+
+        let tbody = $('#tblMinMaxCompare tbody').empty();
+
+        if (!data || data.length === 0) {
+          tbody.append(
+            '<tr><td colspan="10" class="text-center text-muted">Tidak ada data komparasi Min-Max tersedia</td></tr>'
+          );
+          hideLoading();
+          return;
+        }
+
+        data.forEach((row) => {
+          let recBadge = '<span class="badge bg-success">OPTIMAL</span>';
+          if (row.recommendation === 'UNDERSTOCKED_PARAM')
+            recBadge = '<span class="badge bg-danger">NAIKKAN PARAMETER</span>';
+          if (row.recommendation === 'OVERSTOCKED_PARAM')
+            recBadge =
+              '<span class="badge bg-warning text-dark">TURUNKAN PARAMETER</span>';
+
+          let minDevClass =
+            row.deviasiMin > 0
+              ? 'text-danger fw-bold'
+              : row.deviasiMin < 0
+                ? 'text-warning fw-bold'
+                : 'text-muted';
+          let maxDevClass =
+            row.deviasiMax > 0
+              ? 'text-danger fw-bold'
+              : row.deviasiMax < 0
+                ? 'text-warning fw-bold'
+                : 'text-muted';
+
+          tbody.append(`
+            <tr>
+              <td class="fw-bold">${row.materialUtama || '-'}</td>
+              <td>${row.deskripsi || '-'}</td>
+              <td><span class="badge bg-secondary">${row.indikator || '-'}</span></td>
+              <td class="text-center">${row.minExisting ?? 0}</td>
+              <td class="text-center">${row.maxExisting ?? 0}</td>
+              <td class="text-center fw-bold bg-light">${row.minSuggest ?? 0}</td>
+              <td class="text-center fw-bold bg-light">${row.maxSuggest ?? 0}</td>
+              <td class="text-center ${minDevClass}">${row.deviasiMin > 0 ? '+' + row.deviasiMin : row.deviasiMin}</td>
+              <td class="text-center ${maxDevClass}">${row.deviasiMax > 0 ? '+' + row.deviasiMax : row.deviasiMax}</td>
+              <td class="text-center">${recBadge}</td>
+            </tr>
+          `);
+        });
+
+        dataTableMinMax = $('#tblMinMaxCompare').DataTable({
+          pageLength: 10,
+          responsive: true,
+          destroy: true,
+        });
+
+        // Delay sedikit agar DataTables selesai render baru animasi loading ditutup
+        setTimeout(function () {
+          hideLoading();
+        }, 100);
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat data Min-Max: ' + err.message);
+      })
+      .getMinMaxComparisonData();
+  }
+
+  function applyMinMaxToMaster() {
+    if (
+      confirm(
+        'Apakah Anda yakin ingin menyalin SEMUA parameter Min/Max Suggestion menjadi Min/Max Existing pada database Master?'
+      )
+    ) {
+      showLoading('Memperbarui Parameter Min-Max Master...');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          hideLoading();
+          alert(res.message);
+          loadMinMaxComparison();
+        })
+        .withFailureHandler(function (err) {
+          hideLoading();
+          alert('Gagal menerapkan rekomendasi: ' + err.message);
+        })
+        .applyMinMaxSuggestions();
+    }
+  }
+
+  // Inisialisasi otomatis saat page di-load
+  (function initMinMaxPage() {
+    if (window.jQuery && typeof showLoading === 'function') {
+      loadMinMaxComparison();
+    } else {
+      setTimeout(initMinMaxPage, 50);
+    }
+  })();
+</script>

@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inventory Management & Analytics System</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Font Awesome Icons -->
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <!-- DataTables CSS -->
+    <link
+      href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css"
+      rel="stylesheet"
+    />
+    <!-- ApexCharts CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --sidebar-width: 250px;
+        --primary-color: #0d6efd;
+        --bg-light: #f8f9fa;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-light);
+        overflow-x: hidden;
+      }
+
+      /* Sidebar Styling */
+      #sidebar {
+        width: var(--sidebar-width);
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+        background-color: #212529;
+        color: #fff;
+        transition: all 0.3s;
+        overflow-y: auto;
+      }
+
+      #sidebar .sidebar-header {
+        padding: 20px 15px;
+        background: #1a1d20;
+        border-bottom: 1px solid #2c3034;
+      }
+
+      #sidebar .nav-link {
+        color: #adb5bd;
+        padding: 12px 20px;
+        font-size: 0.9rem;
+        border-left: 4px solid transparent;
+        transition: all 0.2s;
+      }
+
+      #sidebar .nav-link:hover,
+      #sidebar .nav-link.active {
+        color: #fff;
+        background-color: #2c3034;
+        border-left-color: var(--primary-color);
+      }
+
+      /* Main Content Wrapper */
+      #main-wrapper {
+        margin-left: var(--sidebar-width);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.3s;
+      }
+
+      /* Navbar Header */
+      .top-navbar {
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        padding: 15px 25px;
+      }
+
+      /* Card Custom Styling */
+      .card-custom {
+        border: none;
+        border-radius: 8px;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        background-color: #fff;
+      }
+
+      /* Utility Classes */
+      .extra-small {
+        font-size: 0.75rem;
+      }
+
+      /* Loading Overlay */
+      #loadingOverlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loginScreen" class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-brand">
+          <span class="auth-logo"
+            ><i class="fa-solid fa-boxes-stacked"></i
+          ></span>
+          <div>
+            <strong>Inventory Hub</strong
+            ><small>SWI PTBA · Management System</small>
+          </div>
+        </div>
+        <div class="auth-heading">
+          <span class="auth-eyebrow">SELAMAT DATANG</span>
+          <h1>Masuk ke akun Anda</h1>
+          <p>Kelola inventori dan pantau data dalam satu tempat.</p>
+        </div>
+        <form id="loginForm" onsubmit="submitLogin(event)">
+          <label class="form-label">Email</label>
+          <div class="auth-input">
+            <i class="fa-regular fa-envelope"></i
+            ><input
+              id="loginEmail"
+              type="email"
+              class="form-control"
+              placeholder="nama@perusahaan.com"
+              autocomplete="username"
+              required
+            />
+          </div>
+          <label class="form-label mt-3">Password</label>
+          <div class="auth-input">
+            <i class="fa-solid fa-lock"></i
+            ><input
+              id="loginPassword"
+              type="password"
+              class="form-control"
+              placeholder="Masukkan password"
+              autocomplete="current-password"
+              required
+            /><button
+              type="button"
+              class="password-toggle"
+              onclick="togglePassword()"
+            >
+              <i class="fa-regular fa-eye"></i>
+            </button>
+          </div>
+          <div
+            id="loginError"
+            class="alert alert-danger d-none mt-3 py-2 small"
+          ></div>
+          <button
+            id="loginSubmit"
+            class="btn btn-primary w-100 auth-submit mt-4"
+          >
+            Masuk <i class="fa-solid fa-arrow-right ms-2"></i>
+          </button>
+        </form>
+        <div class="auth-divider"><span>atau lanjutkan dengan</span></div>
+        <div id="googleButton" class="w-100"></div>
+        <p class="auth-footnote">
+          <i class="fa-solid fa-shield-halved me-1"></i> Sesi login berlaku
+          selama 12 jam.
+        </p>
+        <p class="auth-setup-note">
+          Admin awal: jalankan <code>setupInitialAdmin()</code> di Apps Script.
+        </p>
+      </div>
+    </div>
+    <div id="appShell" class="d-none">
+      <!-- Loading Overlay -->
+      <div id="loadingOverlay" class="d-none">
+        <div
+          class="spinner-border text-primary"
+          role="status"
+          style="width: 3rem; height: 3rem"
+        >
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="mt-3 fw-bold text-dark" id="loadingText">
+          Memuat Data...
+        </div>
+      </div>
+
+      <div id="sidebarBackdrop" aria-hidden="true"></div>
+      <!-- Sidebar Navigasi -->
+      <nav id="sidebar" aria-label="Navigasi utama">
+        <div class="sidebar-header d-flex align-items-center">
+          <i class="fa-solid fa-boxes-stacked fa-2x text-primary me-2"></i>
+          <div>
+            <h6 class="mb-0 fw-bold">INVENTORY SYSTEM</h6>
+            <span class="extra-small text-muted">Analytics & Management</span>
+          </div>
+        </div>
+
+        <ul class="nav flex-column mt-3">
+          <li class="nav-item">
+            <a
+              class="nav-link active"
+              href="javascript:void(0)"
+              onclick="switchPage('dashboard', this)"
+            >
+              <i class="fa-solid fa-chart-line me-2"></i> Dashboard SOH
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('historical', this)"
+            >
+              <i class="fa-solid fa-clock-rotate-left me-2"></i> Readiness Rate
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('rop', this)"
+            >
+              <i class="fa-solid fa-cart-flatbed me-2"></i> Reorder Point (ROP)
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('minmax', this)"
+            >
+              <i class="fa-solid fa-sliders me-2"></i> Min-Max Comparison
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('inventory', this)"
+            >
+              <i class="fa-solid fa-warehouse me-2"></i> Master Material
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('transaction', this)"
+            >
+              <i class="fa-solid fa-money-bill-transfer me-2"></i> Sales
+              Analytics
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('aplservice', this)"
+            >
+              <i class="fa-solid fa-wrench me-2"></i> APL Service
+            </a>
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('poreport', this)"
+            >
+              <i class="fa-solid fa-file-invoice-dollar me-2"></i> PO Report
+            </a>
+          </li>
+          <!-- Menu Baru Proker -->
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('proker', this)"
+            >
+              <i class="fa-solid fa-tasks me-2"></i> Report & Dashboard Proker
+            </a>
+          </li>
+          <li class="nav-item mt-3 border-top pt-2 admin-only">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('users', this)"
+              ><i class="fa-solid fa-users me-2"></i> Management User</a
+            >
+          </li>
+          <li class="nav-item admin-only">
+            <a
+              class="nav-link"
+              href="javascript:void(0)"
+              onclick="switchPage('roles', this)"
+              ><i class="fa-solid fa-user-shield me-2"></i> Management Role</a
+            >
+          </li>
+          <li class="nav-item mt-3 border-top border-secondary pt-2">
+            <a
+              class="nav-link text-warning"
+              href="javascript:void(0)"
+              onclick="switchPage('upload', this)"
+            >
+              <i class="fa-solid fa-cloud-arrow-up me-2"></i> Upload Data
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Main Content Area -->
+      <div id="main-wrapper">
+        <!-- Top Header -->
+        <header
+          class="top-navbar d-flex justify-content-between align-items-center"
+        >
+          <div class="d-flex align-items-center gap-3">
+            <button
+              type="button"
+              id="sidebarToggle"
+              class="btn btn-light d-lg-none"
+              aria-label="Buka menu navigasi"
+              aria-expanded="false"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
+            <div>
+              <div class="small text-muted mb-1">Inventory Management</div>
+              <h5 class="m-0 fw-bold text-dark" id="pageTitle">
+                Dashboard SOH Analytics
+              </h5>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="system-status"
+              ><span class="status-dot"></span> SWI PTBA</span
+            >
+            <div class="dropdown">
+              <button
+                class="btn btn-light dropdown-toggle"
+                data-bs-toggle="dropdown"
+              >
+                <i class="fa-regular fa-circle-user me-1"></i
+                ><span id="currentUserName">User</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                  <span
+                    class="dropdown-item-text small text-muted"
+                    id="currentUserRole"
+                  ></span>
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                  <button
+                    class="dropdown-item text-danger"
+                    onclick="logoutUser()"
+                  >
+                    Keluar
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </header>
+
+        <!-- Page Content Containers -->
+        <main class="container-fluid page-content p-4 p-xl-4">
+          <!-- Container View Dashboard -->
+          <div id="page-dashboard" class="page-view">
+            <?!= include('PageDashboard'); ?>
+          </div>
+
+          <!-- Container View Readiness Rate -->
+          <div id="page-historical" class="page-view d-none">
+            <?!= include('PageHistorical'); ?>
+          </div>
+
+          <!-- Container View ROP -->
+          <div id="page-rop" class="page-view d-none">
+            <?!= include('PageROP'); ?>
+          </div>
+
+          <!-- Container View Min-Max -->
+          <div id="page-minmax" class="page-view d-none">
+            <?!= include('PageMinMax'); ?>
+          </div>
+
+          <!-- Container View Inventory -->
+          <div id="page-inventory" class="page-view d-none">
+            <?!= include('PageInventory'); ?>
+          </div>
+
+          <!-- Container View Transaction -->
+          <div id="page-transaction" class="page-view d-none">
+            <?!= include('PageTransaction'); ?>
+          </div>
+
+          <!-- Container View APL Service -->
+          <div id="page-aplservice" class="page-view d-none">
+            <?!= include('PageAPLService'); ?>
+          </div>
+
+          <!-- Container View PO Report -->
+          <div id="page-poreport" class="page-view d-none">
+            <?!= include('PagePOReport'); ?>
+          </div>
+
+          <!-- Container View Proker (Terhubung ke PageProker.html) -->
+          <div id="page-proker" class="page-view d-none">
+            <?!= include('PageProker'); ?>
+          </div>
+
+          <!-- Container View Upload -->
+          <div id="page-upload" class="page-view d-none">
+            <?!= include('PageUpload'); ?>
+          </div>
+          <div id="page-users" class="page-view d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h4>Management User</h4>
+                <p class="text-muted">
+                  Kelola akun, status, dan role pengguna.
+                </p>
+              </div>
+              <button class="btn btn-primary" onclick="openUserModal()">
+                <i class="fa-solid fa-user-plus me-2"></i>Tambah User
+              </button>
+            </div>
+            <div class="card">
+              <div class="card-body table-responsive">
+                <table class="table align-middle" id="usersTable">
+                  <thead>
+                    <tr>
+                      <th>Nama</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div id="page-roles" class="page-view d-none">
+            <h4>Management Role</h4>
+            <p class="text-muted mb-4">Ringkasan hak akses.</p>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <div class="card card-body h-100">
+                  <h5>Admin</h5>
+                  <p>Akses penuh untuk seluruh fitur dan pengelolaan user.</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card card-body h-100">
+                  <h5>Karyawan</h5>
+                  <p>Akses operasional: melihat data, transaksi, dan upload.</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card card-body h-100">
+                  <h5>Customer</h5>
+                  <p>Hanya dapat melihat produk/master material.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal fade" id="userModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <form onsubmit="saveUser(event)">
+                  <div class="modal-header">
+                    <h5 id="userModalTitle">Tambah pengguna</h5>
+                    <button
+                      type="button"
+                      class="btn-close"
+                      data-bs-dismiss="modal"
+                    ></button>
+                  </div>
+                  <div class="modal-body">
+                    <input type="hidden" id="userOriginalEmail" /><label
+                      class="form-label"
+                      >Nama</label
+                    ><input
+                      id="userName"
+                      class="form-control mb-3"
+                      required
+                    /><label class="form-label">Email</label
+                    ><input
+                      id="userEmail"
+                      type="email"
+                      class="form-control mb-3"
+                      required
+                    /><label class="form-label">Role</label
+                    ><select id="userRole" class="form-select mb-3">
+                      <option>Admin</option>
+                      <option selected>Karyawan</option>
+                      <option>Customer</option></select
+                    ><label class="form-label"
+                      >Password (min. 8 karakter untuk user baru)</label
+                    ><input
+                      id="userPassword"
+                      type="password"
+                      minlength="8"
+                      class="form-control"
+                    />
+                    <div
+                      id="userFormError"
+                      class="text-danger small mt-2"
+                    ></div>
+                  </div>
+                  <div class="modal-footer">
+                    <button
+                      type="button"
+                      class="btn btn-light"
+                      data-bs-dismiss="modal"
+                    >
+                      Batal</button
+                    ><button class="btn btn-primary">Simpan</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <style id="professional-ui-overrides">
+        :root {
+          --sidebar-width: 252px;
+          --brand: #ef512e;
+          --brand-dark: #d94322;
+          --brand-soft: #fff0eb;
+          --ink: #20252b;
+          --muted: #78818d;
+          --canvas: #f2f3f5;
+          --line: #e9ebef;
+          --shadow: 0 8px 28px rgba(24, 32, 45, 0.045);
+        }
+        html {
+          scroll-behavior: smooth;
+        }
+        body {
+          background: var(--canvas) !important;
+          color: var(--ink);
+          font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+          font-size: 14px;
+        }
+        #sidebar {
+          background: #fff !important;
+          color: var(--ink) !important;
+          border: 1px solid #eceef1;
+          border-radius: 18px;
+          top: 18px;
+          left: 18px;
+          bottom: 18px;
+          height: auto;
+          width: 234px;
+          padding: 8px 10px 16px;
+          box-shadow: var(--shadow);
+        }
+        #sidebar .sidebar-header {
+          background: #fff !important;
+          border-bottom: 1px solid var(--line) !important;
+          padding: 18px 12px 22px;
+          color: var(--ink);
+        }
+        #sidebar .sidebar-header .fa-boxes-stacked {
+          color: var(--brand) !important;
+          background: var(--brand-soft);
+          border-radius: 12px;
+          padding: 12px;
+          font-size: 1.3rem;
+        }
+        #sidebar .sidebar-header h6 {
+          font-size: 0.86rem;
+          letter-spacing: 0.045em;
+        }
+        #sidebar .sidebar-header .text-muted {
+          color: #939aa4 !important;
+        }
+        #sidebar .nav {
+          gap: 4px;
+          padding: 0 2px;
+        }
+        #sidebar .nav-link {
+          color: #5f6874 !important;
+          border: 0 !important;
+          border-radius: 9px;
+          padding: 11px 13px;
+          font-weight: 500;
+          font-size: 0.875rem;
+          transition: all 0.18s;
+        }
+        #sidebar .nav-link i {
+          width: 20px;
+          text-align: center;
+          margin-right: 8px !important;
+          color: #87909c;
+        }
+        #sidebar .nav-link:hover {
+          background: #f7f8fa !important;
+          color: var(--ink) !important;
+          transform: translateX(2px);
+        }
+        #sidebar .nav-link.active {
+          color: #fff !important;
+          background: var(--brand) !important;
+          box-shadow: 0 5px 12px #ef512e30;
+        }
+        #sidebar .nav-link.active i {
+          color: #fff !important;
+        }
+        #sidebar .nav-link.text-warning,
+        #sidebar .nav-link.text-warning i {
+          color: var(--brand) !important;
+        }
+        #sidebar .nav-item.mt-3 {
+          border-color: var(--line) !important;
+        }
+        #main-wrapper {
+          margin-left: 270px;
+          margin-right: 18px;
+          min-width: 0;
+        }
+        .top-navbar {
+          position: sticky;
+          top: 0;
+          z-index: 900;
+          margin: 18px 0 0;
+          border: 1px solid #eceef1;
+          border-radius: 16px;
+          background: #ffffffef !important;
+          box-shadow: var(--shadow) !important;
+          padding: 16px 22px;
+          backdrop-filter: blur(14px);
+          min-height: 82px;
+        }
+        .top-navbar h5 {
+          font-size: 1.15rem;
+          letter-spacing: -0.025em;
+        }
+        .top-navbar .small {
+          font-size: 0.73rem;
+        }
+        .system-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          background: #f5f7f8;
+          color: #515b66;
+          padding: 8px 12px;
+          border-radius: 999px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+        .status-dot {
+          width: 7px;
+          height: 7px;
+          background: #25ad70;
+          border-radius: 50%;
+          box-shadow: 0 0 0 3px #dff6eb;
+        }
+        .page-content {
+          padding: 22px 0 28px !important;
+        }
+        .page-view {
+          animation: pageIn 0.2s ease-out;
+        }
+        @keyframes pageIn {
+          from {
+            opacity: 0.6;
+            transform: translateY(3px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .card,
+        .card-custom {
+          border: 1px solid #eceef1 !important;
+          border-radius: 15px !important;
+          box-shadow: var(--shadow) !important;
+          background: #fff !important;
+          overflow: hidden;
+        }
+        .card-custom {
+          padding: 18px !important;
+        }
+        .card-header {
+          background: #fff !important;
+          border-bottom: 1px solid var(--line) !important;
+          padding: 16px 18px !important;
+          font-weight: 650;
+        }
+        .card-body {
+          padding: 18px !important;
+        }
+        .card-title,
+        .chart-card-header {
+          color: var(--ink);
+          font-weight: 700 !important;
+          letter-spacing: -0.01em;
+        }
+        .kpi-title {
+          color: var(--muted) !important;
+          font-size: 0.78rem !important;
+          font-weight: 600;
+        }
+        .kpi-value {
+          font-size: clamp(1.5rem, 2.2vw, 2rem) !important;
+          line-height: 1.2;
+          font-weight: 750 !important;
+          letter-spacing: -0.04em;
+        }
+        .border-primary {
+          border-color: var(--brand) !important;
+        }
+        .text-primary {
+          color: var(--brand) !important;
+        }
+        .bg-primary,
+        .btn-primary {
+          background: var(--brand) !important;
+          border-color: var(--brand) !important;
+        }
+        .btn-primary:hover {
+          background: var(--brand-dark) !important;
+          border-color: var(--brand-dark) !important;
+        }
+        .btn {
+          border-radius: 9px;
+          font-weight: 600;
+          padding: 0.55rem 0.9rem;
+          transition: transform 0.15s ease;
+        }
+        .btn:hover {
+          transform: translateY(-1px);
+        }
+        .btn-outline-primary {
+          color: var(--brand) !important;
+          border-color: #f5b5a6 !important;
+        }
+        .btn-outline-primary:hover {
+          background: var(--brand-soft) !important;
+        }
+        .btn-light,
+        .btn-outline-secondary {
+          border-color: #e6e9ee !important;
+        }
+        .form-control,
+        .form-select,
+        input,
+        select,
+        textarea {
+          border-color: #dfe3e8 !important;
+          border-radius: 9px !important;
+          min-height: 39px;
+          box-shadow: none !important;
+        }
+        .form-control:focus,
+        .form-select:focus,
+        input:focus,
+        select:focus,
+        textarea:focus {
+          border-color: #f29a84 !important;
+          box-shadow: 0 0 0 0.2rem #ef512e1a !important;
+        }
+        label,
+        .form-label {
+          color: #59616c;
+          font-weight: 600;
+          font-size: 0.82rem;
+          margin-bottom: 7px;
+        }
+        .table-responsive {
+          border-radius: 10px;
+        }
+        table.dataTable,
+        .table {
+          border-color: #eef0f3 !important;
+          margin-bottom: 0 !important;
+        }
+        .table > :not(caption) > * > * {
+          padding: 0.78rem 0.85rem;
+          vertical-align: middle;
+        }
+        .table thead th,
+        table.dataTable thead th {
+          color: #68717d !important;
+          background: #f8f9fb !important;
+          font-size: 0.75rem;
+          font-weight: 700;
+          white-space: nowrap;
+          border-bottom: 1px solid #e9edf1 !important;
+        }
+        .table tbody td,
+        table.dataTable tbody td {
+          color: #3e4650;
+          font-size: 0.82rem;
+          border-color: #f0f1f4 !important;
+        }
+        .table tbody tr:hover,
+        table.dataTable tbody tr:hover {
+          background: #fff9f7 !important;
+        }
+        .badge {
+          border-radius: 6px;
+          padding: 0.38em 0.62em;
+          font-weight: 650;
+        }
+        .alert {
+          border: 0;
+          border-radius: 12px;
+        }
+        .nav-tabs {
+          border-color: var(--line);
+          gap: 4px;
+        }
+        .nav-tabs .nav-link {
+          border-radius: 9px 9px 0 0;
+          color: #69727d;
+        }
+        .nav-tabs .nav-link.active {
+          color: var(--brand);
+          border-color: var(--line) var(--line) #fff;
+          font-weight: 700;
+        }
+        .dataTables_wrapper .dataTables_filter input,
+        .dataTables_wrapper .dataTables_length select {
+          margin-left: 0.4rem;
+        }
+        .dataTables_wrapper .dataTables_info,
+        .dataTables_wrapper .dataTables_paginate {
+          color: var(--muted) !important;
+          font-size: 0.8rem;
+          padding-top: 1rem;
+        }
+        .page-link {
+          color: var(--brand);
+          border-color: var(--line);
+        }
+        .page-item.active .page-link {
+          background: var(--brand);
+          border-color: var(--brand);
+        }
+        #loadingOverlay {
+          background: #f7f8f7c7 !important;
+          backdrop-filter: blur(4px);
+        }
+        #loadingOverlay .spinner-border {
+          color: var(--brand) !important;
+        }
+        #sidebarBackdrop {
+          display: none;
+        }
+        @media (max-width: 991.98px) {
+          #sidebar {
+            width: 280px;
+            max-width: calc(100vw - 52px);
+            left: 12px;
+            top: 12px;
+            bottom: 12px;
+            z-index: 1200;
+            transform: translateX(calc(-100% - 24px));
+            transition: transform 0.25s ease;
+          }
+          body.sidebar-open #sidebar {
+            transform: translateX(0);
+          }
+          #sidebarBackdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1100;
+            background: #151b235e;
+            backdrop-filter: blur(2px);
+          }
+          body.sidebar-open #sidebarBackdrop {
+            display: block;
+          }
+          #main-wrapper {
+            margin-left: 12px;
+            margin-right: 12px;
+          }
+          .top-navbar {
+            margin-top: 12px;
+            padding: 13px 15px;
+            min-height: 72px;
+          }
+          .page-content {
+            padding-top: 16px !important;
+          }
+        }
+        @media (max-width: 575.98px) {
+          .top-navbar h5 {
+            font-size: 1rem;
+          }
+          .system-status {
+            font-size: 0.68rem;
+            padding: 7px 9px;
+          }
+          .page-content {
+            padding-bottom: 18px !important;
+          }
+          .card-body,
+          .card-custom {
+            padding: 14px !important;
+          }
+          .table > :not(caption) > * > * {
+            padding: 0.65rem 0.6rem;
+          }
+        }
+      </style>
+
+      <!-- JavaScript Dependencies -->
+      <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+      <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+      <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+      <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
+
+      <script>
+        // Pemetaan Judul Halaman
+        const pageTitles = {
+          dashboard: 'Dashboard SOH Analytics',
+          historical: 'Histori Readiness Rate',
+          rop: 'Reorder Point (ROP) & Purchase Report',
+          minmax: 'Min-Max Parameter Comparison',
+          inventory: 'Master Material & Stock Status',
+          transaction: 'Sales & Financial Analytics',
+          aplservice: 'Report APL Service Analytics',
+          poreport: 'Dashboard & Detail Report Purchase Order (PO)',
+          proker: 'Dashboard & Report Program Kerja (Proker)',
+          upload: 'Bulk Data Upload Center',
+        };
+
+        /**
+         * Fungsi utama untuk perpindahan antar halaman
+         */
+        function switchPage(pageId, element) {
+          // Sembunyikan semua page view
+          $('.page-view').addClass('d-none');
+
+          // Tampilkan page view yang dipilih
+          $(`#page-${pageId}`).removeClass('d-none');
+
+          // Update status navigasi aktif
+          $('#sidebar .nav-link').removeClass('active');
+          if (element) {
+            $(element).addClass('active');
+          }
+
+          // Update judul header
+          if (pageTitles[pageId]) {
+            $('#pageTitle').text(pageTitles[pageId]);
+          }
+
+          // Trigger pemuatan data sesuai halaman
+          if (pageId === 'dashboard' && typeof loadDashboardData === 'function')
+            loadDashboardData();
+          if (
+            pageId === 'historical' &&
+            typeof loadHistoricalData === 'function'
+          )
+            loadHistoricalData();
+          if (pageId === 'rop' && typeof loadROPData === 'function')
+            loadROPData();
+          if (pageId === 'minmax' && typeof loadMinMaxData === 'function')
+            loadMinMaxData();
+          if (pageId === 'inventory' && typeof loadInventoryData === 'function')
+            loadInventoryData();
+          if (
+            pageId === 'transaction' &&
+            typeof loadTransactionData === 'function'
+          )
+            loadTransactionData();
+          if (
+            pageId === 'aplservice' &&
+            typeof loadAPLServiceData === 'function'
+          )
+            loadAPLServiceData();
+          if (pageId === 'poreport' && typeof loadPOReportData === 'function')
+            loadPOReportData();
+          if (pageId === 'proker' && typeof loadProkerData === 'function')
+            loadProkerData();
+        }
+
+        /**
+         * Utility fungsi untuk menampilkan Overlay Loading
+         */
+        function showLoading(msg) {
+          $('#loadingText').text(msg || 'Memuat Data...');
+          $('#loadingOverlay').removeClass('d-none');
+        }
+
+        /**
+         * Utility fungsi untuk menyembunyikan Overlay Loading
+         */
+        function hideLoading() {
+          $('#loadingOverlay').addClass('d-none');
+        }
+
+        // Load awal halaman dashboard saat dokumen selesai dibuat
+        $(document).ready(function () {
+          if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+          }
+        });
+      </script>
+      <script>
+        (function () {
+          const t = document.getElementById('sidebarToggle'),
+            b = document.getElementById('sidebarBackdrop');
+          function close() {
+            document.body.classList.remove('sidebar-open');
+            if (t) t.setAttribute('aria-expanded', 'false');
+          }
+          if (t)
+            t.addEventListener('click', function () {
+              const open = document.body.classList.toggle('sidebar-open');
+              t.setAttribute('aria-expanded', String(open));
+            });
+          if (b) b.addEventListener('click', close);
+          document.querySelectorAll('#sidebar .nav-link').forEach(function (a) {
+            a.addEventListener('click', function () {
+              if (window.matchMedia('(max-width: 991.98px)').matches) close();
+            });
+          });
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+          });
+        })();
+      </script>
+    </div>
+    <style>
+      .auth-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        background:
+          radial-gradient(circle at 15% 15%, #fff0eb, transparent 30%), #f2f3f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        overflow: auto;
+      }
+      .auth-card {
+        width: min(100%, 440px);
+        background: white;
+        border: 1px solid #eceef1;
+        border-radius: 22px;
+        padding: clamp(26px, 5vw, 42px);
+        box-shadow: 0 20px 70px #18202d17;
+      }
+      .auth-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 30px;
+      }
+      .auth-logo {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        background: #fff0eb;
+        color: #ef512e;
+        font-size: 21px;
+      }
+      .auth-brand strong,
+      .auth-brand small {
+        display: block;
+      }
+      .auth-brand small,
+      .auth-heading p,
+      .auth-footnote {
+        color: #78818d;
+        font-size: 0.8rem;
+      }
+      .auth-eyebrow {
+        font-size: 0.7rem;
+        letter-spacing: 0.14em;
+        color: #ef512e;
+        font-weight: 800;
+      }
+      .auth-heading h1 {
+        font-size: 1.65rem;
+        font-weight: 750;
+        letter-spacing: -0.04em;
+        margin: 8px 0;
+      }
+      .auth-heading p {
+        margin-bottom: 24px;
+      }
+      .auth-input {
+        position: relative;
+      }
+      .auth-input > i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #939aa4;
+      }
+      .auth-input input {
+        height: 47px;
+        padding-left: 42px;
+        border-radius: 10px;
+      }
+      .auth-input input:focus {
+        border-color: #ef512e;
+        box-shadow: 0 0 0 0.2rem #ef512e1c;
+      }
+      .password-toggle {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        color: #78818d;
+      }
+      .auth-submit,
+      .google-button {
+        height: 46px;
+        border-radius: 10px;
+      }
+      .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #939aa4;
+        font-size: 0.76rem;
+        margin: 22px 0;
+      }
+      .auth-divider:before,
+      .auth-divider:after {
+        content: '';
+        height: 1px;
+        background: #eceef1;
+        flex: 1;
+      }
+      .auth-footnote {
+        text-align: center;
+        margin: 22px 0 0;
+      }
+      .auth-setup-note {
+        text-align: center;
+        font-size: 0.68rem;
+        color: #a0a6af;
+        margin: 16px 0 0;
+      }
+      .admin-only.d-none {
+        display: none !important;
+      }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      let activeSessionToken = '',
+        activeUser = null;
+      function authCall(m, a, ok, fail) {
+        let r = google.script.run
+          .withSuccessHandler(ok || (() => {}))
+          .withFailureHandler(fail || ((e) => showAuthError(e.message)));
+        r[m].apply(r, a || []);
+      }
+      function showAuthError(t) {
+        let e = document.getElementById('loginError');
+        e.textContent = t;
+        e.classList.remove('d-none');
+      }
+      function submitLogin(e) {
+        e.preventDefault();
+        let b = document.getElementById('loginSubmit');
+        b.disabled = true;
+        b.textContent = 'Memverifikasi…';
+        authCall(
+          'loginWithPassword',
+          [loginEmail.value, loginPassword.value],
+          (r) => {
+            b.disabled = false;
+            b.innerHTML = 'Masuk <i class="fa-solid fa-arrow-right ms-2"></i>';
+            if (!r || !r.success) {
+              showAuthError(
+                (r && r.message) || 'Email atau password tidak valid'
+              );
+              return;
+            }
+            establishSession(r);
+          },
+          (e) => {
+            b.disabled = false;
+            showAuthError(e.message);
+          }
+        );
+      }
+      function establishSession(r) {
+        activeSessionToken = r.token;
+        activeUser = r.user;
+        loginScreen.classList.add('d-none');
+        appShell.classList.remove('d-none');
+        currentUserName.textContent = r.user.name || r.user.email;
+        currentUserRole.textContent = r.user.role;
+        applyRoleUI(r.user.role);
+        sessionStorage.setItem('inventoryToken', r.token);
+        sessionStorage.setItem(
+          'inventoryExpires',
+          String(Date.now() + 43200000)
+        );
+        switchPage(
+          r.user.role === 'Customer' ? 'inventory' : 'dashboard',
+          document.querySelector('#sidebar .nav-link')
+        );
+      }
+      function applyRoleUI(role) {
+        document
+          .querySelectorAll('.admin-only')
+          .forEach((e) => e.classList.toggle('d-none', role !== 'Admin'));
+        document.querySelectorAll('#sidebar .nav-link').forEach((e) => {
+          let item = e.closest('.nav-item'),
+            onclick = e.getAttribute('onclick') || '';
+          if (role === 'Customer')
+            item.classList.toggle('d-none', !onclick.includes("'inventory'"));
+          else if (!e.classList.contains('admin-only'))
+            item.classList.remove('d-none');
+        });
+      }
+      function logoutUser() {
+        authCall('logoutSession', [activeSessionToken]);
+        activeSessionToken = '';
+        activeUser = null;
+        sessionStorage.clear();
+        appShell.classList.add('d-none');
+        loginScreen.classList.remove('d-none');
+        loginPassword.value = '';
+      }
+      function togglePassword() {
+        loginPassword.type =
+          loginPassword.type === 'password' ? 'text' : 'password';
+      }
+      function startGoogleLogin() {
+        authCall('getGoogleClientId', [], (id) => {
+
+          if (!id) {
+            showAuthError(
+              'Login Google belum dikonfigurasi. Tambahkan GOOGLE_CLIENT_ID pada Script Properties.'
+            );
+            return;
+          }
+
+
+          if (!window.google?.accounts?.id) {
+            showAuthError(
+              'Komponen login Google belum siap. Coba beberapa saat lagi.'
+            );
+            return;
+          }
+
+
+          google.accounts.id.initialize({
+            client_id: id,
+            callback: handleGoogleCredential,
+            auto_select:false
+          });
+
+
+          google.accounts.id.renderButton(
+            document.getElementById('googleButton'),
+            {
+              theme:'outline',
+              size:'large',
+              width:380
+            }
+          );
+
+        });
+      }
+      function handleGoogleCredential(r) {
+        authCall(
+          'loginWithGoogle',
+          [r.credential],
+          (x) =>
+            x && x.success
+              ? establishSession(x)
+              : showAuthError((x && x.message) || 'Login Google gagal'),
+          (e) => showAuthError(e.message)
+        );
+      }
+
+      window.addEventListener('load', function(){
+        startGoogleLogin();
+      });
+      function restoreSession() {
+        let t = sessionStorage.getItem('inventoryToken'),
+          x = Number(sessionStorage.getItem('inventoryExpires') || 0);
+        if (!t || Date.now() > x) {
+          sessionStorage.removeItem('inventoryToken');
+          return;
+        }
+        authCall(
+          'validateSession',
+          [t],
+          (r) =>
+            r && r.success ? establishSession(r) : sessionStorage.clear(),
+          () => sessionStorage.clear()
+        );
+      }
+      function loadUsers() {
+        if (activeUser?.role !== 'Admin') return;
+        authCall('listUsers', [activeSessionToken], (us) => {
+          let tb = document.querySelector('#usersTable tbody');
+          tb.innerHTML = '';
+          (us || []).forEach((u) => {
+            let tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td>' +
+              esc(u.name) +
+              '</td><td>' +
+              esc(u.email) +
+              '</td><td>' +
+              esc(u.role) +
+              '</td><td>' +
+              (u.active ? 'Aktif' : 'Nonaktif') +
+              '</td><td><button class="btn btn-sm btn-light" onclick="editUser(' +
+              JSON.stringify(u.email) +
+              ')"><i class="fa-solid fa-pen"></i></button></td>';
+            tb.appendChild(tr);
+          });
+          if (!tb.children.length)
+            tb.innerHTML =
+              '<tr><td colspan="5" class="text-center text-muted">Belum ada pengguna</td></tr>';
+        });
+      }
+      function esc(s) {
+        return String(s || '').replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            })[c]
+        );
+      }
+      function openUserModal() {
+        document.querySelector('#userModal form').reset();
+        userOriginalEmail.value = '';
+        userPassword.required = true;
+        bootstrap.Modal.getOrCreateInstance(userModal).show();
+      }
+      function editUser(email) {
+        authCall('getUserForAdmin', [activeSessionToken, email], (u) => {
+          userOriginalEmail.value = u.email;
+          userName.value = u.name;
+          userEmail.value = u.email;
+          userRole.value = u.role;
+          userPassword.value = '';
+          userPassword.required = false;
+          bootstrap.Modal.getOrCreateInstance(userModal).show();
+        });
+      }
+      function saveUser(e) {
+        e.preventDefault();
+        let d = {
+          name: userName.value,
+          email: userEmail.value,
+          role: userRole.value,
+          password: userPassword.value,
+          originalEmail: userOriginalEmail.value,
+        };
+        authCall(
+          'saveUserForAdmin',
+          [activeSessionToken, d],
+          (r) => {
+            if (r && r.success) {
+              bootstrap.Modal.getOrCreateInstance(userModal).hide();
+              loadUsers();
+            } else
+              userFormError.textContent = (r && r.message) || 'Gagal menyimpan';
+          },
+          (e) => (userFormError.textContent = e.message)
+        );
+      }
+      const baseSwitchPage = window.switchPage;
+      window.switchPage = function (p, e) {
+        if (activeUser?.role === 'Customer' && p !== 'inventory') {
+          p = 'inventory';
+          e = document.querySelector('#sidebar .nav-link[onclick*=inventory]');
+        }
+        if (baseSwitchPage) baseSwitchPage(p, e);
+        if (p === 'users') loadUsers();
+      };
+      window.addEventListener('load', restoreSession);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,249 @@
+<style>
+  #tblInventory th,
+  #tblInventory td {
+    white-space: nowrap;
+  }
+</style>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 d-flex justify-content-between align-items-center">
+    <h5 class="fw-bold mb-0 text-dark">
+      <i class="fa-solid fa-boxes-stacked text-danger me-2"></i>Master Material
+      & Stock Status
+    </h5>
+    <button class="btn btn-danger btn-sm" onclick="triggerABCXYZAnalysis()">
+      <i class="fa-solid fa-calculator me-1"></i> Run ABC-XYZ & Recalculate
+      Min-Max
+    </button>
+  </div>
+</div>
+
+<!-- Control Filter & Export Panel -->
+<div class="card card-custom p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Filter Remark</label>
+      <select
+        id="invFilterRemark"
+        class="form-select form-select-sm"
+        onchange="applyInventoryFilters()"
+      >
+        <option value="ALL">Semua Remark (ALL)</option>
+        <option value="LIB">LIB</option>
+        <option value="ADD">ADD</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted"
+        >Filter Status SOH</label
+      >
+      <select
+        id="invFilterStatus"
+        class="form-select form-select-sm"
+        onchange="applyInventoryFilters()"
+      >
+        <option value="ALL">Semua Status (ALL)</option>
+        <option value="A">Status A (Max)</option>
+        <option value="B">Status B (Min)</option>
+        <option value="C">Status C (>0)</option>
+        <option value="D">Status D (0)</option>
+      </select>
+    </div>
+    <div class="col-md-6 text-end">
+      <button
+        class="btn btn-outline-secondary btn-sm me-2"
+        onclick="resetInventoryFilters()"
+      >
+        <i class="fa-solid fa-rotate-left me-1"></i> Reset Filter
+      </button>
+      <button class="btn btn-success btn-sm" onclick="exportInventoryToExcel()">
+        <i class="fa-solid fa-file-excel me-1"></i> Download Excel
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card card-custom p-3">
+  <div class="table-responsive">
+    <table
+      id="tblInventory"
+      class="table table-hover table-striped w-100 align-middle extra-small"
+    >
+      <thead class="table-dark">
+        <tr>
+          <th>No</th>
+          <th>Produk</th>
+          <th>Komoditi</th>
+          <th>Material Utama</th>
+          <th>ITC 1</th>
+          <th>ITC 2</th>
+          <th>ITC 3</th>
+          <th>ITC 4</th>
+          <th>ITC 5</th>
+          <th>Deskripsi</th>
+          <th>Indikator</th>
+          <th>Min Qty</th>
+          <th>Max Qty</th>
+          <th>Remark</th>
+          <th>SOH</th>
+          <th>Intransit</th>
+          <th>Pending</th>
+          <th>Status</th>
+          <th>ROP</th>
+          <th>Qty Order</th>
+          <th>Suggest Max</th>
+          <th>Suggest Min</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let dataTableInventory = null;
+
+  function loadInventoryData() {
+    showLoading('Memuat Data Master Material...');
+    google.script.run
+      .withSuccessHandler(function (data) {
+        hideLoading();
+        if (dataTableInventory) dataTableInventory.destroy();
+
+        let tbody = $('#tblInventory tbody').empty();
+        data.forEach((r) => {
+          let statusClass = `badge-status-${r[17]}`;
+          tbody.append(`
+            <tr>
+              <td>${r[0]}</td>
+              <td>${r[1]}</td>
+              <td>${r[2]}</td>
+              <td class="fw-bold">${r[3]}</td>
+              <td>${r[4] || '-'}</td>
+              <td>${r[5] || '-'}</td>
+              <td>${r[6] || '-'}</td>
+              <td>${r[7] || '-'}</td>
+              <td>${r[8] || '-'}</td>
+              <td>${r[9]}</td>
+              <td><span class="badge bg-secondary">${r[10]}</span></td>
+              <td>${r[11]}</td>
+              <td>${r[12]}</td>
+              <td><span class="badge bg-dark">${r[13]}</span></td>
+              <td class="fw-bold">${r[14]}</td>
+              <td>${r[15]}</td>
+              <td>${r[16]}</td>
+              <td><span class="badge ${statusClass}">${r[17]}</span></td>
+              <td>${r[18]}</td>
+              <td class="text-danger fw-bold">${r[19]}</td>
+              <td>${r[20]}</td>
+              <td>${r[21]}</td>
+            </tr>
+          `);
+        });
+
+        dataTableInventory = $('#tblInventory').DataTable({
+          pageLength: 10,
+          responsive: true,
+        });
+
+        applyInventoryFilters();
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat Master Material: ' + err.message);
+      })
+      .getInventoryData();
+  }
+
+  function applyInventoryFilters() {
+    if (!dataTableInventory) return;
+
+    let remarkVal = $('#invFilterRemark').val() || 'ALL';
+    let statusVal = $('#invFilterStatus').val() || 'ALL';
+
+    if (remarkVal !== 'ALL') {
+      dataTableInventory.column(13).search('^' + remarkVal + '$', true, false);
+    } else {
+      dataTableInventory.column(13).search('');
+    }
+
+    if (statusVal !== 'ALL') {
+      dataTableInventory.column(17).search('^' + statusVal + '$', true, false);
+    } else {
+      dataTableInventory.column(17).search('');
+    }
+
+    dataTableInventory.draw();
+  }
+
+  function resetInventoryFilters() {
+    $('#invFilterRemark').val('ALL');
+    $('#invFilterStatus').val('ALL');
+    applyInventoryFilters();
+  }
+
+  // Fungsi Export Excel khusus Data Terfilter
+  function exportInventoryToExcel() {
+    if (!dataTableInventory) return;
+
+    showLoading('Mengeksport Data ke Excel...');
+    setTimeout(() => {
+      // Mengambil header kolom
+      let headers = [];
+      $('#tblInventory thead th').each(function () {
+        headers.push($(this).text().trim());
+      });
+
+      // Mengambil data dari baris yang LOLOS filter DataTables
+      let filteredRows = dataTableInventory
+        .rows({ filter: 'applied' })
+        .data()
+        .toArray();
+
+      let exportData = [headers];
+      filteredRows.forEach((row) => {
+        // Membersihkan sintaks HTML/badge dari data cell
+        let cleanRow = row.map((cell) => {
+          let tempDiv = document.createElement('div');
+          tempDiv.innerHTML = cell;
+          return tempDiv.textContent || tempDiv.innerText || cell;
+        });
+        exportData.push(cleanRow);
+      });
+
+      // Membuat workbook dan sheet Excel
+      let wb = XLSX.utils.book_new();
+      let ws = XLSX.utils.aoa_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Master Material');
+
+      // Download file
+      let remark = $('#invFilterRemark').val();
+      let status = $('#invFilterStatus').val();
+      let fileName = `Master_Material_${remark}_Status_${status}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
+      hideLoading();
+    }, 300);
+  }
+
+  function triggerABCXYZAnalysis() {
+    if (
+      confirm(
+        'Jalankan kalkulasi Analisis ABC-XYZ & Recalculate Min-Max? Process ini memerlukan waktu beberapa detik.'
+      )
+    ) {
+      showLoading('Menjalankan Analisis ABC-XYZ...');
+      google.script.run
+        .withSuccessHandler(function (res) {
+          hideLoading();
+          alert(res.message);
+          loadInventoryData();
+        })
+        .withFailureHandler(function (err) {
+          hideLoading();
+          alert('Gagal kalkulasi ABC-XYZ: ' + err.message);
+        })
+        .runABCXYZAnalysis();
+    }
+  }
+</script>

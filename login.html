@@ -1,0 +1,193 @@
+<!-- Login screen: markup only; logic remains in Index.html -->
+<div id="loginScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="auth-logo"><i class="fa-solid fa-boxes-stacked"></i></span>
+      <div>
+        <strong>Inventory Hub</strong
+        ><small>SWI PTBA · Management System</small>
+      </div>
+    </div>
+    <div class="auth-heading">
+      <span class="auth-eyebrow">SELAMAT DATANG</span>
+      <h1>Masuk ke akun Anda</h1>
+      <p>Kelola inventori dan pantau data dalam satu tempat.</p>
+    </div>
+    <form id="loginForm" onsubmit="submitLogin(event)">
+      <label class="form-label">Email</label>
+      <div class="auth-input">
+        <i class="fa-regular fa-envelope"></i
+        ><input
+          id="loginEmail"
+          type="email"
+          class="form-control"
+          placeholder="nama@perusahaan.com"
+          autocomplete="username"
+          required
+        />
+      </div>
+      <label class="form-label mt-3">Password</label>
+      <div class="auth-input">
+        <i class="fa-solid fa-lock"></i
+        ><input
+          id="loginPassword"
+          type="password"
+          class="form-control"
+          placeholder="Masukkan password"
+          autocomplete="current-password"
+          required
+        /><button
+          type="button"
+          class="password-toggle"
+          onclick="togglePassword()"
+        >
+          <i class="fa-regular fa-eye"></i>
+        </button>
+      </div>
+      <div
+        id="loginError"
+        class="alert alert-danger d-none mt-3 py-2 small"
+      ></div>
+      <button id="loginSubmit" class="btn btn-primary w-100 auth-submit mt-4">
+        Masuk <i class="fa-solid fa-arrow-right ms-2"></i>
+      </button>
+    </form>
+    <div class="auth-divider"><span>atau lanjutkan dengan</span></div>
+    <div 
+      id="googleButton"
+      class="w-100"
+    ></div>
+    <p class="auth-footnote">
+      <i class="fa-solid fa-shield-halved me-1"></i> Sesi login berlaku selama
+      12 jam.
+    </p>
+    <p class="auth-setup-note">
+      Admin awal: jalankan <code>setupInitialAdmin()</code> di Apps Script.
+    </p>
+  </div>
+</div>
+
+<style>
+  .auth-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background:
+      radial-gradient(circle at 15% 15%, #fff0eb, transparent 30%), #f2f3f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: auto;
+  }
+  .auth-card {
+    width: min(100%, 440px);
+    background: white;
+    border: 1px solid #eceef1;
+    border-radius: 22px;
+    padding: clamp(26px, 5vw, 42px);
+    box-shadow: 0 20px 70px #18202d17;
+  }
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+  .auth-logo {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: #fff0eb;
+    color: #ef512e;
+    font-size: 21px;
+  }
+  .auth-brand strong,
+  .auth-brand small {
+    display: block;
+  }
+  .auth-brand small,
+  .auth-heading p,
+  .auth-footnote {
+    color: #78818d;
+    font-size: 0.8rem;
+  }
+  .auth-eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    color: #ef512e;
+    font-weight: 800;
+  }
+  .auth-heading h1 {
+    font-size: 1.65rem;
+    font-weight: 750;
+    letter-spacing: -0.04em;
+    margin: 8px 0;
+  }
+  .auth-heading p {
+    margin-bottom: 24px;
+  }
+  .auth-input {
+    position: relative;
+  }
+  .auth-input > i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #939aa4;
+  }
+  .auth-input input {
+    height: 47px;
+    padding-left: 42px;
+    border-radius: 10px;
+  }
+  .auth-input input:focus {
+    border-color: #ef512e;
+    box-shadow: 0 0 0 0.2rem #ef512e1c;
+  }
+  .password-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #78818d;
+  }
+  .auth-submit,
+  .google-button {
+    height: 46px;
+    border-radius: 10px;
+  }
+  .auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #939aa4;
+    font-size: 0.76rem;
+    margin: 22px 0;
+  }
+  .auth-divider:before,
+  .auth-divider:after {
+    content: '';
+    height: 1px;
+    background: #eceef1;
+    flex: 1;
+  }
+  .auth-footnote {
+    text-align: center;
+    margin: 22px 0 0;
+  }
+  .auth-setup-note {
+    text-align: center;
+    font-size: 0.68rem;
+    color: #a0a6af;
+    margin: 16px 0 0;
+  }
+  .admin-only.d-none {
+    display: none !important;
+  }
+</style>

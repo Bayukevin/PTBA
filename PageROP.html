@@ -1,0 +1,282 @@
+<style>
+  #tblROP th,
+  #tblROP td {
+    white-space: nowrap;
+  }
+</style>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 d-flex justify-content-between align-items-center">
+    <h5 class="fw-bold mb-0 text-dark">
+      <i class="fa-solid fa-truck-ramp-box text-danger me-2"></i>Reorder Point
+      (ROP) & Purchase Order Suggestion
+    </h5>
+    <button class="btn btn-success btn-sm" onclick="exportROPToExcel()">
+      <i class="fa-solid fa-file-excel me-1"></i> Download Excel
+    </button>
+  </div>
+</div>
+
+<!-- Panel Filter ROP -->
+<div class="card card-custom p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted"
+        >Filter Status ROP</label
+      >
+      <select
+        id="ropFilterStatus"
+        class="form-select form-select-sm"
+        onchange="applyROPFilters()"
+      >
+        <option value="REORDER NOW" selected>REORDER NOW</option>
+        <option value="SAFE">SAFE</option>
+        <option value="ALL">Semua Status (ALL)</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Filter Produk</label>
+      <select
+        id="ropFilterProduct"
+        class="form-select form-select-sm"
+        onchange="applyROPFilters()"
+      >
+        <option value="ALL">Semua Produk (ALL)</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Filter Komoditi</label>
+      <select
+        id="ropFilterCommodity"
+        class="form-select form-select-sm"
+        onchange="applyROPFilters()"
+      >
+        <option value="ALL">Semua Komoditi (ALL)</option>
+      </select>
+    </div>
+    <div class="col-md-3 text-end">
+      <button
+        class="btn btn-outline-secondary btn-sm w-100"
+        onclick="resetROPFilters()"
+      >
+        <i class="fa-solid fa-rotate-left me-1"></i> Reset Filter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Tabel ROP -->
+<div class="card card-custom p-3">
+  <div class="table-responsive">
+    <table
+      id="tblROP"
+      class="table table-hover table-striped w-100 align-middle extra-small"
+    >
+      <thead class="table-dark">
+        <tr>
+          <th>No</th>
+          <th>Material Utama</th>
+          <th>Deskripsi</th>
+          <th>Produk</th>
+          <th>Komoditi</th>
+          <th>SOH</th>
+          <th>ROP</th>
+          <th>Max Qty</th>
+          <th>FB OH & Intransit</th>
+          <th>Qty Recommendation</th>
+          <th>Status ROP</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let dataTableROP = null;
+
+  function loadROPReport() {
+    // Tampilkan animasi loading
+    showLoading('Memuat Report ROP...');
+
+    google.script.run
+      .withSuccessHandler(function (data) {
+        if ($.fn.DataTable.isDataTable('#tblROP')) {
+          $('#tblROP').DataTable().destroy();
+        }
+
+        let $tbody = $('#tblROP tbody');
+        $tbody.empty();
+
+        if (!data || data.length === 0) {
+          $tbody.append(
+            '<tr><td colspan="11" class="text-center text-muted">Tidak ada data ROP tersedia</td></tr>'
+          );
+          hideLoading();
+          return;
+        }
+
+        let products = new Set();
+        let commodities = new Set();
+
+        data.forEach(function (r) {
+          if (r[3]) products.add(r[3]);
+          if (r[4]) commodities.add(r[4]);
+
+          let statusStr = String(r[10] || '').trim();
+          let badgeROP =
+            statusStr === 'REORDER NOW' || statusStr === 'REORDER'
+              ? '<span class="badge bg-danger">REORDER NOW</span>'
+              : '<span class="badge bg-success">SAFE</span>';
+
+          let rowHtml = `
+            <tr>
+              <td>${r[0]}</td>
+              <td class="fw-bold">${r[1]}</td>
+              <td>${r[2]}</td>
+              <td>${r[3]}</td>
+              <td>${r[4]}</td>
+              <td class="fw-bold">${r[5]}</td>
+              <td>${r[6]}</td>
+              <td>${r[7]}</td>
+              <td>${r[8]}</td>
+              <td class="text-danger fw-bold">${r[9]}</td>
+              <td>${badgeROP}</td>
+            </tr>
+          `;
+          $tbody.append(rowHtml);
+        });
+
+        populateROPDropdowns(Array.from(products), Array.from(commodities));
+
+        dataTableROP = $('#tblROP').DataTable({
+          pageLength: 10,
+          responsive: true,
+          destroy: true,
+          order: [[0, 'asc']],
+        });
+
+        // Terapkan filter otomatis
+        applyROPFilters();
+
+        // Sembunyikan loading dengan sedikit delay agar rendering tabel selesai
+        setTimeout(function () {
+          hideLoading();
+        }, 100);
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat ROP Report: ' + err.message);
+      })
+      .getROPReportData();
+  }
+
+  function populateROPDropdowns(products, commodities) {
+    let $prodSelect = $('#ropFilterProduct');
+    let $commSelect = $('#ropFilterCommodity');
+
+    $prodSelect.html('<option value="ALL">Semua Produk (ALL)</option>');
+    $commSelect.html('<option value="ALL">Semua Komoditi (ALL)</option>');
+
+    products
+      .sort()
+      .forEach((p) => $prodSelect.append(`<option value="${p}">${p}</option>`));
+    commodities
+      .sort()
+      .forEach((c) => $commSelect.append(`<option value="${c}">${c}</option>`));
+  }
+
+  function applyROPFilters() {
+    if (!dataTableROP) return;
+
+    let statusVal = $('#ropFilterStatus').val() || 'REORDER NOW';
+    let prodVal = $('#ropFilterProduct').val() || 'ALL';
+    let commVal = $('#ropFilterCommodity').val() || 'ALL';
+
+    // Filter Produk
+    if (prodVal !== 'ALL') {
+      dataTableROP
+        .column(3)
+        .search(
+          '^' + $.fn.dataTable.util.escapeRegex(prodVal) + '$',
+          true,
+          false
+        );
+    } else {
+      dataTableROP.column(3).search('');
+    }
+
+    // Filter Komoditi
+    if (commVal !== 'ALL') {
+      dataTableROP
+        .column(4)
+        .search(
+          '^' + $.fn.dataTable.util.escapeRegex(commVal) + '$',
+          true,
+          false
+        );
+    } else {
+      dataTableROP.column(4).search('');
+    }
+
+    // Filter Status ROP
+    if (statusVal !== 'ALL') {
+      dataTableROP.column(10).search('^' + statusVal + '$', true, false);
+    } else {
+      dataTableROP.column(10).search('');
+    }
+
+    dataTableROP.draw();
+  }
+
+  function resetROPFilters() {
+    $('#ropFilterStatus').val('REORDER NOW');
+    $('#ropFilterProduct').val('ALL');
+    $('#ropFilterCommodity').val('ALL');
+    applyROPFilters();
+  }
+
+  function exportROPToExcel() {
+    if (!dataTableROP) return;
+
+    showLoading('Mengeksport ROP Report ke Excel...');
+    setTimeout(() => {
+      let headers = [];
+      $('#tblROP thead th').each(function () {
+        headers.push($(this).text().trim());
+      });
+
+      let filteredRows = dataTableROP
+        .rows({ filter: 'applied' })
+        .data()
+        .toArray();
+
+      let exportData = [headers];
+      filteredRows.forEach((row) => {
+        let cleanRow = row.map((cell) => {
+          let tempDiv = document.createElement('div');
+          tempDiv.innerHTML = cell;
+          return tempDiv.textContent || tempDiv.innerText || cell;
+        });
+        exportData.push(cleanRow);
+      });
+
+      let wb = XLSX.utils.book_new();
+      let ws = XLSX.utils.aoa_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(wb, ws, 'ROP_Report');
+
+      let status = $('#ropFilterStatus').val();
+      XLSX.writeFile(wb, `ROP_Order_Report_${status}.xlsx`);
+      hideLoading();
+    }, 300);
+  }
+
+  // Inisialisasi otomatis setelah DOM/Navigasi siap
+  (function initROPPage() {
+    if (window.jQuery && typeof showLoading === 'function') {
+      loadROPReport();
+    } else {
+      setTimeout(initROPPage, 50);
+    }
+  })();
+</script>

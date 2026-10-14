@@ -1,0 +1,270 @@
+<style>
+  .chart-card-header {
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+</style>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-primary">
+      <div class="d-flex align-items-center">
+        <div class="flex-grow-1">
+          <div class="kpi-title">Total Items Master</div>
+          <div class="kpi-value text-primary" id="kpiTotalItems">0</div>
+        </div>
+        <div class="text-primary fs-3">
+          <i class="fa-solid fa-boxes-stacked"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-danger">
+      <div class="d-flex align-items-center">
+        <div class="flex-grow-1">
+          <div class="kpi-title">Items Need Reorder (SOH ≤ ROP)</div>
+          <div class="kpi-value text-danger" id="kpiReorderCount">0</div>
+        </div>
+        <div class="text-danger fs-3">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-success">
+      <div class="d-flex align-items-center">
+        <div class="flex-grow-1">
+          <div class="kpi-title">Readiness SOH LIB</div>
+          <div class="kpi-value text-success" id="kpiReadinessLIB">0.00%</div>
+        </div>
+        <div class="text-success fs-3">
+          <i class="fa-solid fa-square-check"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-info">
+      <div class="d-flex align-items-center">
+        <div class="flex-grow-1">
+          <div class="kpi-title">Readiness SOH ADD</div>
+          <div class="kpi-value text-info" id="kpiReadinessADD">0.00%</div>
+        </div>
+        <div class="text-info fs-3">
+          <i class="fa-solid fa-chart-line"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card card-custom p-3 mb-4">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label fw-bold small text-muted">Filter Produk</label>
+      <select
+        id="dashFilterProduct"
+        class="form-select form-select-sm"
+        onchange="loadDashboardData()"
+      >
+        <option value="ALL">Semua Produk (ALL)</option>
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label fw-bold small text-muted">Filter Komoditi</label>
+      <select
+        id="dashFilterCommodity"
+        class="form-select form-select-sm"
+        onchange="loadDashboardData()"
+      >
+        <option value="ALL">Semua Komoditi (ALL)</option>
+      </select>
+    </div>
+    <div class="col-md-4 text-end">
+      <div class="btn-group btn-group-sm" role="group">
+        <input
+          type="radio"
+          class="btn-check"
+          name="chartUnit"
+          id="unitQty"
+          value="QTY"
+          checked
+          onchange="loadDashboardData()"
+        />
+        <label class="btn btn-outline-danger" for="unitQty">Qty Item</label>
+        <input
+          type="radio"
+          class="btn-check"
+          name="chartUnit"
+          id="unitPct"
+          value="PERCENT"
+          onchange="loadDashboardData()"
+        />
+        <label class="btn btn-outline-danger" for="unitPct"
+          >Persentase (%)</label
+        >
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card card-custom p-3">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-column text-danger me-2"></i>LIB
+      </h6>
+      <div id="chartLIB" style="min-height: 260px"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-custom p-3">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-column text-danger me-2"></i>ADD
+      </h6>
+      <div id="chartADD" style="min-height: 260px"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card card-custom p-3">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-column text-danger me-2"></i>ADD & LIB
+      </h6>
+      <div id="chartALL" style="min-height: 260px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let chartLIBInstance = null;
+  let chartADDInstance = null;
+  let chartALLInstance = null;
+
+  $(document).ready(function () {
+    loadDashboardData();
+  });
+
+  function loadDashboardData() {
+    showLoading('Memuat Dashboard SOH...');
+    let prod = $('#dashFilterProduct').val();
+    let comm = $('#dashFilterCommodity').val();
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        hideLoading();
+        $('#kpiTotalItems').text(res.kpi.totalItems);
+        $('#kpiReorderCount').text(res.kpi.reorderItemCount);
+        $('#kpiReadinessLIB').text(res.kpi.readinessLIB + '%');
+        $('#kpiReadinessADD').text(res.kpi.readinessADD + '%');
+
+        if ($('#dashFilterProduct option').length <= 1) {
+          res.filterOptions.products.forEach((p) =>
+            $('#dashFilterProduct').append(`<option value="${p}">${p}</option>`)
+          );
+          res.filterOptions.commodities.forEach((c) =>
+            $('#dashFilterCommodity').append(
+              `<option value="${c}">${c}</option>`
+            )
+          );
+        }
+
+        let unitMode = $('input[name="chartUnit"]:checked').val();
+        renderSOHChart('chartLIB', res.remarkBreakdown.LIB, unitMode, 'LIB');
+        renderSOHChart('chartADD', res.remarkBreakdown.ADD, unitMode, 'ADD');
+        renderSOHChart('chartALL', res.remarkBreakdown.ALL, unitMode, 'ALL');
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat data dashboard: ' + err.message);
+      })
+      .getDashboardData(null, prod, comm);
+  }
+
+  function renderSOHChart(elementId, data, unitMode, categoryType) {
+    let categories = [
+      'Status A (Max)',
+      'Status B (Min)',
+      'Status C (>0)',
+      'Status D (0)',
+    ];
+    let statusCodes = ['A', 'B', 'C', 'D'];
+    let values = [data.A, data.B, data.C, data.D];
+
+    if (unitMode === 'PERCENT' && data.total > 0) {
+      values = values.map((v) => Number(((v / data.total) * 100).toFixed(1)));
+    }
+
+    let options = {
+      series: [
+        { name: unitMode === 'PERCENT' ? 'Percentage' : 'Items', data: values },
+      ],
+      chart: {
+        type: 'bar',
+        height: 260,
+        toolbar: { show: false },
+        events: {
+          dataPointSelection: function (event, chartContext, config) {
+            let selectedIndex = config.dataPointIndex;
+            if (selectedIndex !== undefined && selectedIndex >= 0) {
+              let clickedStatus = statusCodes[selectedIndex];
+              // Pindah ke Halaman Master Material dan terapkan Filter
+              navigateToMasterWithFilter(categoryType, clickedStatus);
+            }
+          },
+        },
+      },
+      colors: ['#198754', '#0d6efd', '#ffc107', '#dc3545'],
+      plotOptions: { bar: { distributed: true, borderRadius: 4 } },
+      xaxis: { categories: categories },
+      dataLabels: {
+        enabled: true,
+        formatter: (val) => (unitMode === 'PERCENT' ? val + '%' : val),
+      },
+    };
+
+    if (elementId === 'chartLIB') {
+      if (chartLIBInstance) chartLIBInstance.destroy();
+      chartLIBInstance = new ApexCharts(
+        document.querySelector('#chartLIB'),
+        options
+      );
+      chartLIBInstance.render();
+    } else if (elementId === 'chartADD') {
+      if (chartADDInstance) chartADDInstance.destroy();
+      chartADDInstance = new ApexCharts(
+        document.querySelector('#chartADD'),
+        options
+      );
+      chartADDInstance.render();
+    } else if (elementId === 'chartALL') {
+      if (chartALLInstance) chartALLInstance.destroy();
+      chartALLInstance = new ApexCharts(
+        document.querySelector('#chartALL'),
+        options
+      );
+      chartALLInstance.render();
+    }
+  }
+
+  function navigateToMasterWithFilter(remarkFilter, statusFilter) {
+    // 1. Pindah Halaman ke Master Material
+    switchPage(
+      'inventory',
+      $('.sidebar .nav-link:contains("Master Material")')[0]
+    );
+
+    // 2. Set Nilai Filter pada Dropdown Master Material
+    $('#invFilterRemark').val(remarkFilter);
+    $('#invFilterStatus').val(statusFilter);
+
+    // 3. Terapkan Filter Data
+    if (typeof applyInventoryFilters === 'function') {
+      applyInventoryFilters();
+    }
+  }
+</script>

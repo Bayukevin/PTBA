@@ -1,0 +1,344 @@
+<style>
+  #tblProker th,
+  #tblProker td {
+    white-space: nowrap;
+  }
+</style>
+
+<!-- KPI / Card Overview -->
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-primary">
+      <div class="text-muted extra-small fw-bold">TOTAL ITEM PROKER</div>
+      <div class="h4 fw-bold mb-0" id="kpiTotalProkerItem">0</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-success">
+      <div class="text-muted extra-small fw-bold">STATUS CLOSE</div>
+      <div class="h4 fw-bold text-success mb-0" id="kpiStatusClose">0 (0%)</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-warning">
+      <div class="text-muted extra-small fw-bold">STATUS OPEN</div>
+      <div class="h4 fw-bold text-warning mb-0" id="kpiStatusOpen">0 (0%)</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card card-custom p-3 border-start border-4 border-info">
+      <div class="text-muted extra-small fw-bold">
+        RATA-RATA CLOSE PER PROKER
+      </div>
+      <div class="h4 fw-bold text-info mb-0" id="kpiAvgProkerClose">0%</div>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard Section (2 Dashboard Charts) -->
+<div class="row g-3 mb-3">
+  <!-- Dashboard 1: Presentase Status (CLOSE vs OPEN) -->
+  <div class="col-md-5">
+    <div class="card card-custom p-3 h-100">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-pie me-2 text-danger"></i>Presentase Status
+        (CLOSE vs OPEN)
+      </h6>
+      <div id="chartStatusPercentage" style="min-height: 280px"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard 2: Presentase Proker yang Close -->
+  <div class="col-md-7">
+    <div class="card card-custom p-3 h-100">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-bar me-2 text-primary"></i>Presentase
+        Completion Close per Proker
+      </h6>
+      <div id="chartProkerClosePercentage" style="min-height: 280px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter Panel -->
+<div class="card card-custom p-3 mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold extra-small text-muted mb-1"
+        >Filter Proker</label
+      >
+      <select
+        id="filterProkerName"
+        class="form-select form-select-sm"
+        onchange="applyProkerFilters()"
+      >
+        <option value="ALL">-- Semua Proker --</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold extra-small text-muted mb-1"
+        >Filter Material</label
+      >
+      <select
+        id="filterProkerMaterial"
+        class="form-select form-select-sm"
+        onchange="applyProkerFilters()"
+      >
+        <option value="ALL">-- Semua Material --</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-bold extra-small text-muted mb-1"
+        >Filter Status</label
+      >
+      <select
+        id="filterProkerStatus"
+        class="form-select form-select-sm"
+        onchange="applyProkerFilters()"
+      >
+        <option value="ALL">-- Semua Status --</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label fw-bold extra-small text-muted mb-1"
+        >Filter Kode Unit</label
+      >
+      <select
+        id="filterProkerUnit"
+        class="form-select form-select-sm"
+        onchange="applyProkerFilters()"
+      >
+        <option value="ALL">-- Semua Kode Unit --</option>
+      </select>
+    </div>
+    <div class="col-md-2 text-end">
+      <button
+        class="btn btn-outline-secondary btn-sm w-100"
+        onclick="resetProkerFilters()"
+      >
+        <i class="fa-solid fa-rotate-left me-1"></i> Reset Filter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- List Proker Table -->
+<div class="card card-custom p-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold text-dark m-0">
+      <i class="fa-solid fa-list-check me-2 text-danger"></i>List Detail Proker
+    </h6>
+  </div>
+  <div class="table-responsive">
+    <table
+      id="tblProker"
+      class="table table-hover table-striped w-100 align-middle extra-small"
+    >
+      <thead class="table-dark">
+        <tr>
+          <th>No</th>
+          <th>Status</th>
+          <th>Proker</th>
+          <th>Model Unit</th>
+          <th>Kode Unit</th>
+          <th>Material</th>
+          <th>Desc</th>
+          <th>Qty</th>
+          <th>Plan Tanggal Install</th>
+          <th>Tanggal Supplay</th>
+          <th>QTY Supplay</th>
+          <th>OPEN QTY</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let rawProkerData = [];
+  let dtProker = null;
+  let chartStatusObj = null;
+  let chartProkerObj = null;
+
+  function loadProkerData() {
+    showLoading('Memuat Data Proker...');
+    google.script.run
+      .withSuccessHandler(function (response) {
+        hideLoading();
+        rawProkerData = response.items || [];
+
+        // Update KPI
+        $('#kpiTotalProkerItem').text(response.kpi.totalItems);
+        $('#kpiStatusClose').text(
+          response.kpi.closeCount + ' (' + response.kpi.pctStatusClose + '%)'
+        );
+        $('#kpiStatusOpen').text(
+          response.kpi.openCount + ' (' + response.kpi.pctStatusOpen + '%)'
+        );
+        $('#kpiAvgProkerClose').text(response.kpi.pctProkerClose + '%');
+
+        // Populate Dropdowns
+        populateProkerFilters(response.filterOptions);
+
+        // Render Charts
+        renderStatusChart(
+          response.kpi.pctStatusClose,
+          response.kpi.pctStatusOpen
+        );
+        renderProkerCloseChart(response.prokerCloseSummary);
+
+        // Render Table
+        renderProkerTable(rawProkerData);
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat data Proker: ' + err.message);
+      })
+      .getProkerData();
+  }
+
+  function populateProkerFilters(opts) {
+    if (!opts) return;
+
+    let pSelect = $('#filterProkerName').html(
+      '<option value="ALL">-- Semua Proker --</option>'
+    );
+    opts.prokerList.forEach((p) =>
+      pSelect.append(`<option value="${p}">${p}</option>`)
+    );
+
+    let mSelect = $('#filterProkerMaterial').html(
+      '<option value="ALL">-- Semua Material --</option>'
+    );
+    opts.materialList.forEach((m) =>
+      mSelect.append(`<option value="${m}">${m}</option>`)
+    );
+
+    let sSelect = $('#filterProkerStatus').html(
+      '<option value="ALL">-- Semua Status --</option>'
+    );
+    opts.statusList.forEach((s) =>
+      sSelect.append(`<option value="${s}">${s}</option>`)
+    );
+
+    let uSelect = $('#filterProkerUnit').html(
+      '<option value="ALL">-- Semua Kode Unit --</option>'
+    );
+    opts.unitList.forEach((u) =>
+      uSelect.append(`<option value="${u}">${u}</option>`)
+    );
+  }
+
+  function renderStatusChart(pctClose, pctOpen) {
+    if (chartStatusObj) chartStatusObj.destroy();
+
+    const options = {
+      series: [pctClose, pctOpen],
+      chart: { type: 'pie', height: 280 },
+      labels: ['CLOSE', 'OPEN'],
+      colors: ['#198754', '#ffc107'],
+      legend: { position: 'bottom' },
+      dataLabels: {
+        formatter(val) {
+          return val.toFixed(1) + '%';
+        },
+      },
+    };
+
+    chartStatusObj = new ApexCharts(
+      document.querySelector('#chartStatusPercentage'),
+      options
+    );
+    chartStatusObj.render();
+  }
+
+  function renderProkerCloseChart(summary) {
+    if (chartProkerObj) chartProkerObj.destroy();
+
+    const categories = summary.map((s) => s.prokerName);
+    const seriesData = summary.map((s) => s.pctClose);
+
+    const options = {
+      series: [{ name: '% Close', data: seriesData }],
+      chart: { type: 'bar', height: 280 },
+      plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+      dataLabels: {
+        enabled: true,
+        formatter: function (val) {
+          return val + '%';
+        },
+      },
+      xaxis: { categories: categories, max: 100 },
+      colors: ['#0d6efd'],
+    };
+
+    chartProkerObj = new ApexCharts(
+      document.querySelector('#chartProkerClosePercentage'),
+      options
+    );
+    chartProkerObj.render();
+  }
+
+  function renderProkerTable(data) {
+    if ($.fn.DataTable.isDataTable('#tblProker')) {
+      $('#tblProker').DataTable().destroy();
+    }
+
+    const tbody = $('#tblProker tbody').empty();
+
+    data.forEach((item) => {
+      let badgeClass =
+        item.status === 'CLOSE' ? 'bg-success' : 'bg-warning text-dark';
+      tbody.append(`
+        <tr>
+          <td>${item.no}</td>
+          <td><span class="badge ${badgeClass}">${item.status}</span></td>
+          <td class="fw-bold">${item.proker}</td>
+          <td>${item.modelUnit}</td>
+          <td>${item.kodeUnit}</td>
+          <td>${item.material}</td>
+          <td>${item.desc}</td>
+          <td>${item.qty}</td>
+          <td>${item.planInstall}</td>
+          <td>${item.tglSupplay}</td>
+          <td>${item.qtySupplay}</td>
+          <td class="fw-bold ${item.openQty > 0 ? 'text-danger' : ''}">${item.openQty}</td>
+          <td>${item.remark}</td>
+        </tr>
+      `);
+    });
+
+    dtProker = $('#tblProker').DataTable({
+      pageLength: 15,
+      responsive: true,
+      order: [[0, 'asc']],
+    });
+  }
+
+  function applyProkerFilters() {
+    const fProker = $('#filterProkerName').val();
+    const fMaterial = $('#filterProkerMaterial').val();
+    const fStatus = $('#filterProkerStatus').val();
+    const fUnit = $('#filterProkerUnit').val();
+
+    let filtered = rawProkerData.filter((item) => {
+      let matchP = fProker === 'ALL' || item.proker === fProker;
+      let matchM = fMaterial === 'ALL' || item.material === fMaterial;
+      let matchS = fStatus === 'ALL' || item.status === fStatus;
+      let matchU = fUnit === 'ALL' || item.kodeUnit === fUnit;
+      return matchP && matchM && matchS && matchU;
+    });
+
+    renderProkerTable(filtered);
+  }
+
+  function resetProkerFilters() {
+    $('#filterProkerName').val('ALL');
+    $('#filterProkerMaterial').val('ALL');
+    $('#filterProkerStatus').val('ALL');
+    $('#filterProkerUnit').val('ALL');
+    renderProkerTable(rawProkerData);
+  }
+</script>

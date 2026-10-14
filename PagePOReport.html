@@ -1,0 +1,520 @@
+<style>
+  #tblPOReport th,
+  #tblPOReport td {
+    white-space: nowrap;
+  }
+  .kpi-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #6c757d;
+  }
+  .kpi-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+  }
+  .col-md-2-4 {
+    flex: 0 0 auto;
+    width: 20%;
+  }
+  @media (max-width: 768px) {
+    .col-md-2-4 {
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- KPI Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-2-4 col-sm-6">
+    <div
+      class="card card-custom p-3 border-start border-4 border-primary shadow-sm h-100"
+    >
+      <div class="kpi-title">Total PO Items</div>
+      <div class="kpi-value text-primary" id="kpiTotalPO">0</div>
+    </div>
+  </div>
+  <div class="col-md-2-4 col-sm-6">
+    <div
+      class="card card-custom p-3 border-start border-4 border-warning shadow-sm h-100"
+    >
+      <div class="kpi-title">Open PO (Undelivered)</div>
+      <div class="kpi-value text-warning" id="kpiOpenPO">0</div>
+    </div>
+  </div>
+  <div class="col-md-2-4 col-sm-6">
+    <div
+      class="card card-custom p-3 border-start border-4 border-success shadow-sm h-100"
+    >
+      <div class="kpi-title">Closed PO (Fully Delivered)</div>
+      <div class="kpi-value text-success" id="kpiClosedPO">0</div>
+    </div>
+  </div>
+  <div class="col-md-2-4 col-sm-6">
+    <div
+      class="card card-custom p-3 border-start border-4 border-info shadow-sm h-100"
+    >
+      <div class="kpi-title">Total Net Value</div>
+      <div class="kpi-value text-info" id="kpiTotalVal">Rp 0</div>
+    </div>
+  </div>
+  <div class="col-md-2-4 col-sm-6">
+    <div
+      class="card card-custom p-3 border-start border-4 border-danger shadow-sm h-100"
+    >
+      <div class="kpi-title">Outstanding Value (Open)</div>
+      <div class="kpi-value text-danger" id="kpiOpenVal">Rp 0</div>
+    </div>
+  </div>
+</div>
+
+<!-- Header Control, Filter & Upload Section -->
+<div class="card card-custom p-3 mb-4 shadow-sm">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted"
+        >Filter Status PO</label
+      >
+      <select
+        id="poFilterStatus"
+        class="form-select form-select-sm"
+        onchange="applyPOFilters()"
+      >
+        <option value="ALL">Semua Status PO (ALL)</option>
+        <option value="OPEN">OPEN (Still to be delivered > 0)</option>
+        <option value="CLOSED">CLOSED (Still to be delivered = 0)</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted"
+        >Filter Approval Status</label
+      >
+      <select
+        id="poFilterApproval"
+        class="form-select form-select-sm"
+        onchange="applyPOFilters()"
+      >
+        <option value="ALL">Semua Status Approval</option>
+        <option value="Approved">Approved (Value 1)</option>
+        <option value="Belum Approved">Belum Approved (Value 0)</option>
+        <option value="Hold">Hold (Value "")</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label fw-bold small text-muted">Filter Vendor</label>
+      <select
+        id="poFilterVendor"
+        class="form-select form-select-sm"
+        onchange="applyPOFilters()"
+      >
+        <option value="ALL">Semua Vendor</option>
+      </select>
+    </div>
+    <div class="col-md-3 text-end">
+      <button
+        class="btn btn-outline-secondary btn-sm me-1"
+        onclick="resetPOFilters()"
+      >
+        <i class="fa-solid fa-rotate-left me-1"></i> Reset
+      </button>
+      <button
+        class="btn btn-primary btn-sm me-1"
+        data-bs-toggle="modal"
+        data-bs-target="#modalUploadPO"
+      >
+        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload Excel PO
+      </button>
+      <button class="btn btn-success btn-sm" onclick="exportPOToExcel()">
+        <i class="fa-solid fa-file-excel me-1"></i> Download Excel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Upload Excel PO Report -->
+<div
+  class="modal fade"
+  id="modalUploadPO"
+  tabindex="-1"
+  aria-labelledby="modalUploadPOLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fs-6 fw-bold" id="modalUploadPOLabel">
+          <i class="fa-solid fa-file-excel me-2"></i>Upload File Excel PO Report
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">
+          Unggah file Excel (<code>.xlsx</code> / <code>.xls</code>) laporan PO.
+          Data baru akan menggantikan data PO sebelumnya di database.
+        </p>
+        <div class="mb-3">
+          <label for="filePOExcel" class="form-label fw-semibold small"
+            >Pilih File Excel PO</label
+          >
+          <input
+            class="form-control form-control-sm"
+            type="file"
+            id="filePOExcel"
+            accept=".xlsx, .xls"
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          data-bs-dismiss="modal"
+        >
+          Batal
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm"
+          onclick="submitPOExcelUpload()"
+        >
+          <i class="fa-solid fa-upload me-1"></i> Mulai Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card card-custom p-3 shadow-sm">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-pie text-danger me-2"></i>Status PO (Open vs
+        Closed)
+      </h6>
+      <div id="chartPOStatus" style="min-height: 250px"></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card card-custom p-3 shadow-sm">
+      <h6 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-chart-bar text-danger me-2"></i>Status Release /
+        Approval Indicator
+      </h6>
+      <div id="chartPOApproval" style="min-height: 250px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Table Container -->
+<div class="card card-custom p-3 shadow-sm">
+  <h6 class="fw-bold text-dark mb-3">
+    <i class="fa-solid fa-list text-danger me-2"></i>Detail Data Purchase Order
+  </h6>
+  <div class="table-responsive">
+    <table
+      id="tblPOReport"
+      class="table table-hover table-striped w-100 align-middle extra-small"
+    >
+      <thead class="table-dark">
+        <tr>
+          <th>No</th>
+          <th>Status PO</th>
+          <th>Approval Status</th>
+          <th>Purchasing Doc</th>
+          <th>Item</th>
+          <th>Doc Date</th>
+          <th>Vendor</th>
+          <th>Material</th>
+          <th>Short Text</th>
+          <th>Order Qty</th>
+          <th>Order Unit</th>
+          <th>Net Price</th>
+          <th>Still Deliv Qty</th>
+          <th>Still Deliv Val</th>
+          <th>Net Order Val</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let dataTablePO = null;
+  let rawPOData = [];
+  let chartStatusInstance = null;
+  let chartApprovalInstance = null;
+
+  function formatCurrency(val) {
+    if (isNaN(val) || val === null) return 'Rp 0';
+    return 'Rp ' + Number(val).toLocaleString('id-ID');
+  }
+
+  function loadPOReportData() {
+    showLoading('Memuat Data Purchase Order...');
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        hideLoading();
+        if (!res) return;
+
+        rawPOData = res.items || [];
+
+        // Update KPI
+        $('#kpiTotalPO').text(res.kpi.totalPO || 0);
+        $('#kpiOpenPO').text(res.kpi.openPO || 0);
+        $('#kpiClosedPO').text(res.kpi.closedPO || 0);
+        $('#kpiTotalVal').text(formatCurrency(res.kpi.totalVal));
+        $('#kpiOpenVal').text(formatCurrency(res.kpi.openVal));
+
+        populatePOVendors();
+        renderPOTable();
+        renderPOCharts(res.kpi);
+      })
+      .withFailureHandler(function (err) {
+        hideLoading();
+        alert('Gagal memuat data PO: ' + err.message);
+      })
+      .getPOReportData();
+  }
+
+  function populatePOVendors() {
+    let vendors = new Set();
+    rawPOData.forEach((item) => {
+      if (item.vendor) vendors.add(item.vendor);
+    });
+
+    let $select = $('#poFilterVendor');
+    $select.html('<option value="ALL">Semua Vendor</option>');
+
+    Array.from(vendors)
+      .sort()
+      .forEach((v) => {
+        $select.append(`<option value="${v}">${v}</option>`);
+      });
+  }
+
+  function renderPOTable() {
+    if ($.fn.DataTable.isDataTable('#tblPOReport')) {
+      $('#tblPOReport').DataTable().destroy();
+    }
+
+    let $tbody = $('#tblPOReport tbody').empty();
+
+    rawPOData.forEach((r) => {
+      let poBadge =
+        r.poStatus === 'OPEN' ? 'bg-warning text-dark' : 'bg-success';
+      let appBadge = 'bg-secondary';
+      if (r.releaseStatusText === 'Approved') appBadge = 'bg-success';
+      if (r.releaseStatusText === 'Belum Approved') appBadge = 'bg-danger';
+
+      let rowHtml = `
+        <tr>
+          <td>${r.no}</td>
+          <td><span class="badge ${poBadge}">${r.poStatus}</span></td>
+          <td><span class="badge ${appBadge}">${r.releaseStatusText}</span></td>
+          <td class="fw-bold">${r.purchasingDoc}</td>
+          <td>${r.item}</td>
+          <td>${r.docDate}</td>
+          <td>${r.vendor}</td>
+          <td>${r.material}</td>
+          <td>${r.shortText}</td>
+          <td>${r.orderQty}</td>
+          <td>${r.orderUnit}</td>
+          <td>${formatCurrency(r.netPrice)}</td>
+          <td class="fw-bold text-danger">${r.stillDelivQty}</td>
+          <td class="fw-bold text-danger">${formatCurrency(r.stillDelivVal)}</td>
+          <td class="fw-bold text-primary">${formatCurrency(r.netOrderVal)}</td>
+        </tr>
+      `;
+      $tbody.append(rowHtml);
+    });
+
+    dataTablePO = $('#tblPOReport').DataTable({
+      pageLength: 10,
+      responsive: true,
+      order: [[0, 'asc']],
+    });
+
+    applyPOFilters();
+  }
+
+  function renderPOCharts(kpi) {
+    // 1. Chart Donut Status PO
+    let optionsStatus = {
+      series: [kpi.openPO, kpi.closedPO],
+      labels: ['Open PO', 'Closed PO'],
+      chart: { type: 'donut', height: 250 },
+      colors: ['#ffc107', '#198754'],
+      legend: { position: 'bottom' },
+    };
+
+    if (chartStatusInstance) chartStatusInstance.destroy();
+    chartStatusInstance = new ApexCharts(
+      document.querySelector('#chartPOStatus'),
+      optionsStatus
+    );
+    chartStatusInstance.render();
+
+    // 2. Chart Bar Status Approval
+    let approvedCount = 0;
+    let notApprovedCount = 0;
+    let holdCount = 0;
+
+    rawPOData.forEach((r) => {
+      if (r.releaseStatusText === 'Approved') approvedCount++;
+      else if (r.releaseStatusText === 'Belum Approved') notApprovedCount++;
+      else holdCount++;
+    });
+
+    let optionsApproval = {
+      series: [
+        {
+          name: 'Jumlah PO',
+          data: [approvedCount, notApprovedCount, holdCount],
+        },
+      ],
+      chart: { type: 'bar', height: 250, toolbar: { show: false } },
+      colors: ['#198754', '#dc3545', '#6c757d'],
+      plotOptions: { bar: { distributed: true, borderRadius: 4 } },
+      xaxis: { categories: ['Approved', 'Belum Approved', 'Hold'] },
+      dataLabels: { enabled: true },
+    };
+
+    if (chartApprovalInstance) chartApprovalInstance.destroy();
+    chartApprovalInstance = new ApexCharts(
+      document.querySelector('#chartPOApproval'),
+      optionsApproval
+    );
+    chartApprovalInstance.render();
+  }
+
+  function applyPOFilters() {
+    if (!dataTablePO) return;
+
+    let statusVal = $('#poFilterStatus').val() || 'ALL';
+    let appVal = $('#poFilterApproval').val() || 'ALL';
+    let vendorVal = $('#poFilterVendor').val() || 'ALL';
+
+    if (statusVal !== 'ALL') {
+      dataTablePO
+        .column(1)
+        .search(
+          '^' + $.fn.dataTable.util.escapeRegex(statusVal) + '$',
+          true,
+          false
+        );
+    } else {
+      dataTablePO.column(1).search('');
+    }
+
+    if (appVal !== 'ALL') {
+      dataTablePO
+        .column(2)
+        .search(
+          '^' + $.fn.dataTable.util.escapeRegex(appVal) + '$',
+          true,
+          false
+        );
+    } else {
+      dataTablePO.column(2).search('');
+    }
+
+    if (vendorVal !== 'ALL') {
+      dataTablePO
+        .column(6)
+        .search(
+          '^' + $.fn.dataTable.util.escapeRegex(vendorVal) + '$',
+          true,
+          false
+        );
+    } else {
+      dataTablePO.column(6).search('');
+    }
+
+    dataTablePO.draw();
+  }
+
+  function resetPOFilters() {
+    $('#poFilterStatus').val('ALL');
+    $('#poFilterApproval').val('ALL');
+    $('#poFilterVendor').val('ALL');
+    applyPOFilters();
+  }
+
+  function submitPOExcelUpload() {
+    let fileInput = document.getElementById('filePOExcel');
+    if (!fileInput.files.length) {
+      alert('Pilih file Excel terlebih dahulu!');
+      return;
+    }
+
+    let file = fileInput.files[0];
+    let reader = new FileReader();
+
+    showLoading('Memproses File Excel PO...');
+
+    reader.onload = function (e) {
+      let data = new Uint8Array(e.target.result);
+      let workbook = XLSX.read(data, { type: 'array' });
+      let firstSheetName = workbook.SheetNames[0];
+      let worksheet = workbook.Sheets[firstSheetName];
+      let jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          hideLoading();
+          $('#modalUploadPO').modal('hide');
+          alert(res.message);
+          loadPOReportData();
+        })
+        .withFailureHandler(function (err) {
+          hideLoading();
+          alert('Upload Gagal: ' + err.message);
+        })
+        .processPOReportUpload(jsonRows, file.name);
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  function exportPOToExcel() {
+    if (!dataTablePO) return;
+
+    showLoading('Mengeksport Data PO ke Excel...');
+    setTimeout(() => {
+      let headers = [];
+      $('#tblPOReport thead th').each(function () {
+        headers.push($(this).text().trim());
+      });
+
+      let filteredRows = dataTablePO
+        .rows({ filter: 'applied' })
+        .data()
+        .toArray();
+
+      let exportData = [headers];
+      filteredRows.forEach((row) => {
+        let cleanRow = row.map((cell) => {
+          let tempDiv = document.createElement('div');
+          tempDiv.innerHTML = cell;
+          return tempDiv.textContent || tempDiv.innerText || cell;
+        });
+        exportData.push(cleanRow);
+      });
+
+      let wb = XLSX.utils.book_new();
+      let ws = XLSX.utils.aoa_to_sheet(exportData);
+      XLSX.utils.book_append_sheet(wb, ws, 'PO_Report');
+
+      XLSX.writeFile(wb, 'PO_Report_Export.xlsx');
+      hideLoading();
+    }, 300);
+  }
+</script>

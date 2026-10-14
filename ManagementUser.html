@@ -1,0 +1,76 @@
+<!-- Management User: page and modal markup; client handlers are in Index.html -->
+<div id="page-users" class="page-view d-none">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4>Management User</h4>
+      <p class="text-muted">Kelola akun, status, dan role pengguna.</p>
+    </div>
+    <button class="btn btn-primary" onclick="openUserModal()">
+      <i class="fa-solid fa-user-plus me-2"></i>Tambah User
+    </button>
+  </div>
+  <div class="card">
+    <div class="card-body table-responsive">
+      <table class="table align-middle" id="usersTable">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="userModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form onsubmit="saveUser(event)">
+        <div class="modal-header">
+          <h5 id="userModalTitle">Tambah pengguna</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="userOriginalEmail" /><label
+            class="form-label"
+            >Nama</label
+          ><input id="userName" class="form-control mb-3" required /><label
+            class="form-label"
+            >Email</label
+          ><input
+            id="userEmail"
+            type="email"
+            class="form-control mb-3"
+            required
+          /><label class="form-label">Role</label
+          ><select id="userRole" class="form-select mb-3">
+            <option>Admin</option>
+            <option selected>Karyawan</option>
+            <option>Customer</option></select
+          ><label class="form-label"
+            >Password (min. 8 karakter untuk user baru)</label
+          ><input
+            id="userPassword"
+            type="password"
+            minlength="8"
+            class="form-control"
+          />
+          <div id="userFormError" class="text-danger small mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+            Batal</button
+          ><button class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

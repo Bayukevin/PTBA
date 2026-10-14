@@ -1,0 +1,35 @@
+/**
+ * Fungsi untuk menggabungkan seluruh file (.gs & .html) di proyek ini 
+ * menjadi 1 file 'file.txt' di Google Drive Anda.
+ */
+function exportProjectToOneTextFile() {
+  const scriptId = ScriptApp.getScriptId();
+  const url = `https://script.google.com/feeds/download/export?format=json&id=${scriptId}`;
+  
+  // Mengambil data seluruh file di proyek via Google Apps Script API
+  const response = UrlFetchApp.fetch(url, {
+    headers: {
+      Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+    }
+  });
+  
+  const projectData = JSON.parse(response.getContentText());
+  let combinedContent = "==================================================\n";
+  combinedContent += `EXPORTS PROYEK: ${projectData.files.length} FILE\n`;
+  combinedContent += "==================================================\n\n";
+  
+  // Iterasi menggabungkan setiap file
+  projectData.files.forEach(file => {
+    let ext = file.type === 'SERVER_JS' ? '.gs' : '.html';
+    combinedContent += `/**************************************************\n`;
+    combinedContent += ` * FILE: ${file.name}${ext}\n`;
+    combinedContent += ` * TYPE: ${file.type}\n`;
+    combinedContent += ` **************************************************/\n\n`;
+    combinedContent += file.source + "\n\n\n";
+  });
+  
+  // Simpan hasil ke Google Drive root dengan nama 'file.txt'
+  const newFile = DriveApp.createFile('file.txt', combinedContent);
+  
+  Logger.log(`✅ Berhasil! File telah disimpan di Google Drive: ${newFile.getUrl()}`);
+}
