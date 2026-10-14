@@ -1325,6 +1325,90 @@ function getUsers() {
     return [];
   }
 }
+
+function getUserByEmail(email) {
+  try {
+    email = String(email || '').trim().toLowerCase();
+    if (!email) {
+      return { success: false, message: 'Email tidak boleh kosong.' };
+    }
+    const u = authFindUser_(email);
+    if (!u) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+    return {
+      success: true,
+      data: {
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        active: u.active
+      }
+    };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
+
+function updateUser(userData) {
+  try {
+    if (!userData || typeof userData !== 'object') {
+      return { success: false, message: 'Data user tidak valid.' };
+    }
+    const originalEmail = String(userData.originalEmail || '').trim().toLowerCase();
+    const name = String(userData.name || '').trim();
+    const email = String(userData.email || '').trim().toLowerCase();
+    const role = String(userData.role || '').trim();
+    const password = String(userData.password || '');
+    const activeBool = userData.active === true || String(userData.active).toLowerCase() === 'true';
+
+    if (!originalEmail) {
+      return { success: false, message: 'Original email tidak valid.' };
+    }
+    if (!name) {
+      return { success: false, message: 'Nama tidak boleh kosong.' };
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return { success: false, message: 'Format email tidak valid.' };
+    }
+    const validRoles = ['Admin', 'Karyawan', 'Customer'];
+    if (!validRoles.includes(role)) {
+      return { success: false, message: 'Role hanya boleh Admin, Karyawan, atau Customer.' };
+    }
+
+    const sh = authUsersSheet_();
+    const existing = authFindUser_(originalEmail);
+    if (!existing) {
+      return { success: false, message: 'User tidak ditemukan' };
+    }
+
+    // Cek duplikasi email jika email diubah
+    if (email !== originalEmail) {
+      const duplicate = authFindUser_(email);
+      if (duplicate && duplicate.row !== existing.row) {
+        return { success: false, message: 'Email sudah digunakan user lain' };
+      }
+    }
+
+    // Update password jika diisi, jika kosong pertahankan PasswordHash dan Salt lama
+    if (password) {
+      if (password.length < 8) {
+        return { success: false, message: 'Password minimal 8 karakter.' };
+      }
+      const salt = Utilities.getUuid();
+      const passwordHash = passwordHash_(password, salt);
+      sh.getRange(existing.row, 1, 1, 6).setValues([[name, email, role, passwordHash, salt, activeBool]]);
+    } else {
+      sh.getRange(existing.row, 1, 1, 3).setValues([[name, email, role]]);
+      sh.getRange(existing.row, 6).setValue(activeBool);
+    }
+
+    return { success: true, message: 'User berhasil diperbarui' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
 function authFindUser_(email) {
   const sh=authUsersSheet_(), values=sh.getDataRange().getValues(); email=String(email||'').trim().toLowerCase();
   for(let i=1;i<values.length;i++) if(String(values[i][1]).trim().toLowerCase()===email) return {row:i+1,name:String(values[i][0]||''),email:String(values[i][1]),role:String(values[i][2]||'Customer'),hash:String(values[i][3]||''),salt:String(values[i][4]||''),active:values[i][5]===true||String(values[i][5]).toLowerCase()==='true',googleSub:String(values[i][6]||'')};

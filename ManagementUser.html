@@ -76,7 +76,15 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label" for="userPassword">Password (min. 8 karakter untuk user baru)</label>
+            <label class="form-label" for="userActive">Status User</label>
+            <select id="userActive" class="form-select">
+              <option value="true" selected>Aktif</option>
+              <option value="false">Nonaktif</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" id="userPasswordLabel" for="userPassword">Password (min. 8 karakter untuk user baru)</label>
             <input
               id="userPassword"
               type="password"
@@ -115,11 +123,17 @@
     const role = document.getElementById('userRole');
     if (role) role.value = 'Karyawan';
 
+    const activeEl = document.getElementById('userActive');
+    if (activeEl) activeEl.value = 'true';
+
     const pwd = document.getElementById('userPassword');
     if (pwd) {
       pwd.value = '';
       pwd.required = true;
     }
+
+    const pwdLabel = document.getElementById('userPasswordLabel');
+    if (pwdLabel) pwdLabel.textContent = 'Password (min. 8 karakter untuk user baru)';
 
     const title = document.getElementById('userModalTitle');
     if (title) title.textContent = 'Tambah User';
@@ -186,7 +200,7 @@
   }
 
   /**
-   * Menyimpan data user (Frontend Validation + google.script.run)
+   * Menyimpan data user (Add/Update via google.script.run)
    */
   function saveUser(e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -194,6 +208,7 @@
     const nameEl = document.getElementById('userName');
     const emailEl = document.getElementById('userEmail');
     const roleEl = document.getElementById('userRole');
+    const activeEl = document.getElementById('userActive');
     const passwordEl = document.getElementById('userPassword');
     const errorEl = document.getElementById('userFormError');
     const originalEmailEl = document.getElementById('userOriginalEmail');
@@ -206,6 +221,7 @@
     const name = nameEl ? nameEl.value.trim() : '';
     const email = emailEl ? emailEl.value.trim() : '';
     const role = roleEl ? roleEl.value.trim() : '';
+    const active = activeEl ? (activeEl.value === 'true') : true;
     const password = passwordEl ? passwordEl.value : '';
     const originalEmail = originalEmailEl ? originalEmailEl.value.trim() : '';
 
@@ -230,9 +246,13 @@
       return;
     }
 
-    // 4. Password untuk user baru minimal 8 karakter
+    // 4. Password validation
     if (!originalEmail && (!password || password.length < 8)) {
-      showUserFormError('Password minimal 8 karakter.');
+      showUserFormError('Password minimal 8 karakter untuk user baru.');
+      return;
+    }
+    if (originalEmail && password && password.length < 8) {
+      showUserFormError('Password minimal 8 karakter jika ingin diubah.');
       return;
     }
 
@@ -247,11 +267,12 @@
       name: name,
       email: email,
       role: role,
+      active: active,
       password: password
     };
 
-    // Mode Edit User (existing user update via saveUserForAdmin)
-    if (originalEmail && typeof activeSessionToken !== 'undefined' && activeSessionToken) {
+    // Mode Edit User
+    if (originalEmail) {
       userData.originalEmail = originalEmail;
       google.script.run
         .withSuccessHandler(function (r) {
@@ -264,7 +285,7 @@
             showUserNotification(r.message || 'User berhasil diperbarui');
             loadUsers();
           } else {
-            showUserFormError((r && r.message) || 'Gagal menyimpan user.');
+            showUserFormError((r && r.message) || 'Gagal memperbarui user.');
           }
         })
         .withFailureHandler(function (err) {
@@ -274,11 +295,11 @@
           }
           showUserFormError(err.message || 'Terjadi kesalahan sistem.');
         })
-        .saveUserForAdmin(activeSessionToken, userData);
+        .updateUser(userData);
       return;
     }
 
-    // Mode Tambah User Baru per PRD: google.script.run -> addUser(userData)
+    // Mode Tambah User Baru
     google.script.run
       .withSuccessHandler(function (r) {
         if (submitBtn) {
@@ -286,14 +307,10 @@
           submitBtn.innerHTML = origBtnHtml;
         }
         if (r && r.success) {
-          // 1. Menutup modal
           hideUserModal();
-          // 2. Reset form
           const form = document.querySelector('#userModal form');
           if (form) form.reset();
-          // 3. Menampilkan notifikasi sukses
           showUserNotification(r.message || 'User berhasil ditambahkan');
-          // 4. Reload tabel user
           loadUsers();
         } else {
           showUserFormError((r && r.message) || 'Gagal menambahkan user.');
@@ -320,7 +337,8 @@
         tb.innerHTML = '';
         (us || []).forEach(function (u) {
           const tr = document.createElement('tr');
-          const statusBadge = u.active
+          const isUserActive = (u.active === true || String(u.active).toLowerCase() === 'true');
+          const statusBadge = isUserActive
             ? '<span class="badge bg-success">Aktif</span>'
             : '<span class="badge bg-secondary">Nonaktif</span>';
           tr.innerHTML =
@@ -328,10 +346,16 @@
             '<td>' + escUserHtml(u.email) + '</td>' +
             '<td>' + escUserHtml(u.role) + '</td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td><button class="btn btn-sm btn-light" onclick="editUser(' +
-            JSON.stringify(u.email) +
-            ')"><i class="fa-solid fa-pen"></i></button></td>';
+            '<td><button class="btn btn-sm btn-light btn-edit-user" data-email="' + escUserHtml(u.email) + '"><i class="fa-solid fa-pen"></i></button></td>';
           tb.appendChild(tr);
+        });
+
+        // Event listener delegasi untuk tombol edit
+        tb.querySelectorAll('.btn-edit-user').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            const email = this.getAttribute('data-email');
+            if (email) editUser(email);
+          });
         });
         if (!tb.children.length) {
           tb.innerHTML =
@@ -345,31 +369,61 @@
   }
 
   /**
-   * Membuka modal untuk mengedit data pengguna
+   * Membuka modal dan memuat data pengguna untuk diedit
    */
   function editUser(email) {
-    if (typeof activeSessionToken !== 'undefined' && activeSessionToken && typeof authCall === 'function') {
-      authCall('getUserForAdmin', [activeSessionToken, email], function (u) {
+    if (typeof showLoading === 'function') {
+      showLoading('Memuat data user...');
+    }
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (typeof hideLoading === 'function') {
+          hideLoading();
+        }
+
+        const u = (res && res.data) ? res.data : (res && res.email ? res : null);
+        if (!u) {
+          alert((res && res.message) || 'User tidak ditemukan.');
+          return;
+        }
+
         const origEmail = document.getElementById('userOriginalEmail');
-        if (origEmail) origEmail.value = u.email;
+        if (origEmail) origEmail.value = u.email || '';
+
         const nameEl = document.getElementById('userName');
-        if (nameEl) nameEl.value = u.name;
+        if (nameEl) nameEl.value = u.name || '';
+
         const emailEl = document.getElementById('userEmail');
-        if (emailEl) emailEl.value = u.email;
+        if (emailEl) emailEl.value = u.email || '';
+
         const roleEl = document.getElementById('userRole');
-        if (roleEl) roleEl.value = u.role;
+        if (roleEl) roleEl.value = u.role || 'Karyawan';
+
+        const activeEl = document.getElementById('userActive');
+        if (activeEl) {
+          const isAct = (u.active === true || String(u.active).toLowerCase() === 'true');
+          activeEl.value = isAct ? 'true' : 'false';
+        }
+
         const pwd = document.getElementById('userPassword');
         if (pwd) {
           pwd.value = '';
           pwd.required = false;
         }
+
+        const pwdLabel = document.getElementById('userPasswordLabel');
+        if (pwdLabel) pwdLabel.textContent = 'Password (kosongkan jika tidak ingin mengubah)';
+
         const title = document.getElementById('userModalTitle');
         if (title) title.textContent = 'Edit User';
+
         const err = document.getElementById('userFormError');
         if (err) {
           err.textContent = '';
           err.classList.add('d-none');
         }
+
         const modalEl = document.getElementById('userModal');
         if (modalEl) {
           if (window.bootstrap && bootstrap.Modal) {
@@ -378,8 +432,14 @@
             $(modalEl).modal('show');
           }
         }
-      });
-    }
+      })
+      .withFailureHandler(function (err) {
+        if (typeof hideLoading === 'function') {
+          hideLoading();
+        }
+        alert('Gagal memuat data user: ' + (err.message || err));
+      })
+      .getUserByEmail(email);
   }
 
   function escUserHtml(s) {
