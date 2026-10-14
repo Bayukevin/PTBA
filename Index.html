@@ -439,116 +439,12 @@
           <div id="page-upload" class="page-view d-none">
             <?!= include('PageUpload'); ?>
           </div>
-          <div id="page-users" class="page-view d-none">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-              <div>
-                <h4>Management User</h4>
-                <p class="text-muted">
-                  Kelola akun, status, dan role pengguna.
-                </p>
-              </div>
-              <button class="btn btn-primary" onclick="openUserModal()">
-                <i class="fa-solid fa-user-plus me-2"></i>Tambah User
-              </button>
-            </div>
-            <div class="card">
-              <div class="card-body table-responsive">
-                <table class="table align-middle" id="usersTable">
-                  <thead>
-                    <tr>
-                      <th>Nama</th>
-                      <th>Email</th>
-                      <th>Role</th>
-                      <th>Status</th>
-                      <th>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-          <div id="page-roles" class="page-view d-none">
-            <h4>Management Role</h4>
-            <p class="text-muted mb-4">Ringkasan hak akses.</p>
-            <div class="row g-3">
-              <div class="col-md-4">
-                <div class="card card-body h-100">
-                  <h5>Admin</h5>
-                  <p>Akses penuh untuk seluruh fitur dan pengelolaan user.</p>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="card card-body h-100">
-                  <h5>Karyawan</h5>
-                  <p>Akses operasional: melihat data, transaksi, dan upload.</p>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="card card-body h-100">
-                  <h5>Customer</h5>
-                  <p>Hanya dapat melihat produk/master material.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal fade" id="userModal" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-              <div class="modal-content">
-                <form onsubmit="saveUser(event)">
-                  <div class="modal-header">
-                    <h5 id="userModalTitle">Tambah pengguna</h5>
-                    <button
-                      type="button"
-                      class="btn-close"
-                      data-bs-dismiss="modal"
-                    ></button>
-                  </div>
-                  <div class="modal-body">
-                    <input type="hidden" id="userOriginalEmail" /><label
-                      class="form-label"
-                      >Nama</label
-                    ><input
-                      id="userName"
-                      class="form-control mb-3"
-                      required
-                    /><label class="form-label">Email</label
-                    ><input
-                      id="userEmail"
-                      type="email"
-                      class="form-control mb-3"
-                      required
-                    /><label class="form-label">Role</label
-                    ><select id="userRole" class="form-select mb-3">
-                      <option>Admin</option>
-                      <option selected>Karyawan</option>
-                      <option>Customer</option></select
-                    ><label class="form-label"
-                      >Password (min. 8 karakter untuk user baru)</label
-                    ><input
-                      id="userPassword"
-                      type="password"
-                      minlength="8"
-                      class="form-control"
-                    />
-                    <div
-                      id="userFormError"
-                      class="text-danger small mt-2"
-                    ></div>
-                  </div>
-                  <div class="modal-footer">
-                    <button
-                      type="button"
-                      class="btn btn-light"
-                      data-bs-dismiss="modal"
-                    >
-                      Batal</button
-                    ><button class="btn btn-primary">Simpan</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
+
+          <!-- Container View Management User -->
+          <?!= include('ManagementUser'); ?>
+
+          <!-- Container View Management Role -->
+          <?!= include('ManagementRole'); ?>
         </main>
       </div>
 
@@ -1013,6 +909,8 @@
             loadPOReportData();
           if (pageId === 'proker' && typeof loadProkerData === 'function')
             loadProkerData();
+          if (pageId === 'users' && typeof loadUsers === 'function')
+            loadUsers();
         }
 
         /**
@@ -1335,84 +1233,6 @@
           (r) =>
             r && r.success ? establishSession(r) : sessionStorage.clear(),
           () => sessionStorage.clear()
-        );
-      }
-      function loadUsers() {
-        if (activeUser?.role !== 'Admin') return;
-        authCall('listUsers', [activeSessionToken], (us) => {
-          let tb = document.querySelector('#usersTable tbody');
-          tb.innerHTML = '';
-          (us || []).forEach((u) => {
-            let tr = document.createElement('tr');
-            tr.innerHTML =
-              '<td>' +
-              esc(u.name) +
-              '</td><td>' +
-              esc(u.email) +
-              '</td><td>' +
-              esc(u.role) +
-              '</td><td>' +
-              (u.active ? 'Aktif' : 'Nonaktif') +
-              '</td><td><button class="btn btn-sm btn-light" onclick="editUser(' +
-              JSON.stringify(u.email) +
-              ')"><i class="fa-solid fa-pen"></i></button></td>';
-            tb.appendChild(tr);
-          });
-          if (!tb.children.length)
-            tb.innerHTML =
-              '<tr><td colspan="5" class="text-center text-muted">Belum ada pengguna</td></tr>';
-        });
-      }
-      function esc(s) {
-        return String(s || '').replace(
-          /[&<>"']/g,
-          (c) =>
-            ({
-              '&': '&amp;',
-              '<': '&lt;',
-              '>': '&gt;',
-              '"': '&quot;',
-              "'": '&#39;',
-            })[c]
-        );
-      }
-      function openUserModal() {
-        document.querySelector('#userModal form').reset();
-        userOriginalEmail.value = '';
-        userPassword.required = true;
-        bootstrap.Modal.getOrCreateInstance(userModal).show();
-      }
-      function editUser(email) {
-        authCall('getUserForAdmin', [activeSessionToken, email], (u) => {
-          userOriginalEmail.value = u.email;
-          userName.value = u.name;
-          userEmail.value = u.email;
-          userRole.value = u.role;
-          userPassword.value = '';
-          userPassword.required = false;
-          bootstrap.Modal.getOrCreateInstance(userModal).show();
-        });
-      }
-      function saveUser(e) {
-        e.preventDefault();
-        let d = {
-          name: userName.value,
-          email: userEmail.value,
-          role: userRole.value,
-          password: userPassword.value,
-          originalEmail: userOriginalEmail.value,
-        };
-        authCall(
-          'saveUserForAdmin',
-          [activeSessionToken, d],
-          (r) => {
-            if (r && r.success) {
-              bootstrap.Modal.getOrCreateInstance(userModal).hide();
-              loadUsers();
-            } else
-              userFormError.textContent = (r && r.message) || 'Gagal menyimpan';
-          },
-          (e) => (userFormError.textContent = e.message)
         );
       }
       const baseSwitchPage = window.switchPage;

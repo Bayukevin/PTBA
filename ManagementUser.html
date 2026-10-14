@@ -1,4 +1,4 @@
-<!-- Management User: page and modal markup; client handlers are in Index.html -->
+<!-- Management User: page and modal markup with client handlers -->
 <div id="page-users" class="page-view d-none">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -9,6 +9,13 @@
       <i class="fa-solid fa-user-plus me-2"></i>Tambah User
     </button>
   </div>
+
+  <div id="userSuccessAlert" class="alert alert-success d-none alert-dismissible fade show mb-3" role="alert">
+    <i class="fa-solid fa-circle-check me-2"></i>
+    <span id="userSuccessMessage">User berhasil ditambahkan</span>
+    <button type="button" class="btn-close" onclick="this.parentElement.classList.add('d-none')"></button>
+  </div>
+
   <div class="card">
     <div class="card-body table-responsive">
       <table class="table align-middle" id="usersTable">
@@ -26,51 +33,373 @@
     </div>
   </div>
 </div>
-<div class="modal fade" id="userModal" tabindex="-1">
+
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form onsubmit="saveUser(event)">
+      <form id="userForm" onsubmit="saveUser(event)">
         <div class="modal-header">
-          <h5 id="userModalTitle">Tambah pengguna</h5>
+          <h5 class="modal-title" id="userModalTitle">Tambah User</h5>
           <button
             type="button"
             class="btn-close"
             data-bs-dismiss="modal"
+            aria-label="Close"
           ></button>
         </div>
         <div class="modal-body">
-          <input type="hidden" id="userOriginalEmail" /><label
-            class="form-label"
-            >Nama</label
-          ><input id="userName" class="form-control mb-3" required /><label
-            class="form-label"
-            >Email</label
-          ><input
-            id="userEmail"
-            type="email"
-            class="form-control mb-3"
-            required
-          /><label class="form-label">Role</label
-          ><select id="userRole" class="form-select mb-3">
-            <option>Admin</option>
-            <option selected>Karyawan</option>
-            <option>Customer</option></select
-          ><label class="form-label"
-            >Password (min. 8 karakter untuk user baru)</label
-          ><input
-            id="userPassword"
-            type="password"
-            minlength="8"
-            class="form-control"
-          />
-          <div id="userFormError" class="text-danger small mt-2"></div>
+          <input type="hidden" id="userOriginalEmail" />
+
+          <div class="mb-3">
+            <label class="form-label" for="userName">Nama</label>
+            <input id="userName" class="form-control" placeholder="Nama lengkap" required />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="userEmail">Email</label>
+            <input
+              id="userEmail"
+              type="email"
+              class="form-control"
+              placeholder="user@gmail.com"
+              required
+            />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="userRole">Role</label>
+            <select id="userRole" class="form-select">
+              <option value="Admin">Admin</option>
+              <option value="Karyawan" selected>Karyawan</option>
+              <option value="Customer">Customer</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="userPassword">Password (min. 8 karakter untuk user baru)</label>
+            <input
+              id="userPassword"
+              type="password"
+              minlength="8"
+              class="form-control"
+              placeholder="Masukkan password"
+            />
+          </div>
+
+          <div id="userFormError" class="alert alert-danger d-none py-2 small"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-            Batal</button
-          ><button class="btn btn-primary">Simpan</button>
+            Batal
+          </button>
+          <button type="submit" id="btnSaveUser" class="btn btn-primary">
+            Simpan
+          </button>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+  /**
+   * Membuka modal Tambah User dengan form kosong
+   */
+  function openUserModal() {
+    const form = document.querySelector('#userModal form');
+    if (form) form.reset();
+
+    const origEmail = document.getElementById('userOriginalEmail');
+    if (origEmail) origEmail.value = '';
+
+    const role = document.getElementById('userRole');
+    if (role) role.value = 'Karyawan';
+
+    const pwd = document.getElementById('userPassword');
+    if (pwd) {
+      pwd.value = '';
+      pwd.required = true;
+    }
+
+    const title = document.getElementById('userModalTitle');
+    if (title) title.textContent = 'Tambah User';
+
+    const err = document.getElementById('userFormError');
+    if (err) {
+      err.textContent = '';
+      err.classList.add('d-none');
+    }
+
+    const modalEl = document.getElementById('userModal');
+    if (modalEl) {
+      if (window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      } else if (window.$ && $.fn.modal) {
+        $(modalEl).modal('show');
+      }
+    }
+  }
+
+  /**
+   * Menutup modal user
+   */
+  function hideUserModal() {
+    const modalEl = document.getElementById('userModal');
+    if (modalEl) {
+      if (window.bootstrap && bootstrap.Modal) {
+        const inst = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+        if (inst) inst.hide();
+      } else if (window.$ && $.fn.modal) {
+        $(modalEl).modal('hide');
+      }
+    }
+  }
+
+  /**
+   * Menampilkan error pada modal form
+   */
+  function showUserFormError(msg) {
+    const err = document.getElementById('userFormError');
+    if (err) {
+      err.textContent = msg;
+      err.classList.remove('d-none');
+    } else {
+      alert(msg);
+    }
+  }
+
+  /**
+   * Menampilkan alert sukses pada halaman Management User
+   */
+  function showUserNotification(msg) {
+    const alertBox = document.getElementById('userSuccessAlert');
+    const msgEl = document.getElementById('userSuccessMessage');
+    if (alertBox && msgEl) {
+      msgEl.textContent = msg;
+      alertBox.classList.remove('d-none');
+      setTimeout(function () {
+        alertBox.classList.add('d-none');
+      }, 4000);
+    } else {
+      alert(msg);
+    }
+  }
+
+  /**
+   * Menyimpan data user (Frontend Validation + google.script.run)
+   */
+  function saveUser(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const nameEl = document.getElementById('userName');
+    const emailEl = document.getElementById('userEmail');
+    const roleEl = document.getElementById('userRole');
+    const passwordEl = document.getElementById('userPassword');
+    const errorEl = document.getElementById('userFormError');
+    const originalEmailEl = document.getElementById('userOriginalEmail');
+
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.classList.add('d-none');
+    }
+
+    const name = nameEl ? nameEl.value.trim() : '';
+    const email = emailEl ? emailEl.value.trim() : '';
+    const role = roleEl ? roleEl.value.trim() : '';
+    const password = passwordEl ? passwordEl.value : '';
+    const originalEmail = originalEmailEl ? originalEmailEl.value.trim() : '';
+
+    // Validasi Frontend sesuai PRD
+    // 1. Nama tidak boleh kosong
+    if (!name) {
+      showUserFormError('Nama tidak boleh kosong.');
+      return;
+    }
+
+    // 2. Format email harus valid
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      showUserFormError('Format email tidak valid (contoh: user@gmail.com).');
+      return;
+    }
+
+    // 3. Role hanya boleh Admin, Karyawan, Customer
+    const validRoles = ['Admin', 'Karyawan', 'Customer'];
+    if (!validRoles.includes(role)) {
+      showUserFormError('Role hanya boleh: Admin, Karyawan, atau Customer.');
+      return;
+    }
+
+    // 4. Password untuk user baru minimal 8 karakter
+    if (!originalEmail && (!password || password.length < 8)) {
+      showUserFormError('Password minimal 8 karakter.');
+      return;
+    }
+
+    const submitBtn = document.getElementById('btnSaveUser') || document.querySelector('#userModal form button[type="submit"]');
+    const origBtnHtml = submitBtn ? submitBtn.innerHTML : 'Simpan';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...';
+    }
+
+    const userData = {
+      name: name,
+      email: email,
+      role: role,
+      password: password
+    };
+
+    // Mode Edit User (existing user update via saveUserForAdmin)
+    if (originalEmail && typeof activeSessionToken !== 'undefined' && activeSessionToken) {
+      userData.originalEmail = originalEmail;
+      google.script.run
+        .withSuccessHandler(function (r) {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHtml;
+          }
+          if (r && r.success) {
+            hideUserModal();
+            showUserNotification(r.message || 'User berhasil diperbarui');
+            loadUsers();
+          } else {
+            showUserFormError((r && r.message) || 'Gagal menyimpan user.');
+          }
+        })
+        .withFailureHandler(function (err) {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHtml;
+          }
+          showUserFormError(err.message || 'Terjadi kesalahan sistem.');
+        })
+        .saveUserForAdmin(activeSessionToken, userData);
+      return;
+    }
+
+    // Mode Tambah User Baru per PRD: google.script.run -> addUser(userData)
+    google.script.run
+      .withSuccessHandler(function (r) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnHtml;
+        }
+        if (r && r.success) {
+          // 1. Menutup modal
+          hideUserModal();
+          // 2. Reset form
+          const form = document.querySelector('#userModal form');
+          if (form) form.reset();
+          // 3. Menampilkan notifikasi sukses
+          showUserNotification(r.message || 'User berhasil ditambahkan');
+          // 4. Reload tabel user
+          loadUsers();
+        } else {
+          showUserFormError((r && r.message) || 'Gagal menambahkan user.');
+        }
+      })
+      .withFailureHandler(function (err) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origBtnHtml;
+        }
+        showUserFormError(err.message || 'Terjadi kesalahan pada server.');
+      })
+      .addUser(userData);
+  }
+
+  /**
+   * Memuat data pengguna dan menampilkannya pada tabel #usersTable
+   */
+  function loadUsers() {
+    google.script.run
+      .withSuccessHandler(function (us) {
+        const tb = document.querySelector('#usersTable tbody');
+        if (!tb) return;
+        tb.innerHTML = '';
+        (us || []).forEach(function (u) {
+          const tr = document.createElement('tr');
+          const statusBadge = u.active
+            ? '<span class="badge bg-success">Aktif</span>'
+            : '<span class="badge bg-secondary">Nonaktif</span>';
+          tr.innerHTML =
+            '<td>' + escUserHtml(u.name) + '</td>' +
+            '<td>' + escUserHtml(u.email) + '</td>' +
+            '<td>' + escUserHtml(u.role) + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td><button class="btn btn-sm btn-light" onclick="editUser(' +
+            JSON.stringify(u.email) +
+            ')"><i class="fa-solid fa-pen"></i></button></td>';
+          tb.appendChild(tr);
+        });
+        if (!tb.children.length) {
+          tb.innerHTML =
+            '<tr><td colspan="5" class="text-center text-muted">Belum ada pengguna</td></tr>';
+        }
+      })
+      .withFailureHandler(function (err) {
+        console.error('Gagal memuat pengguna:', err);
+      })
+      .getUsers();
+  }
+
+  /**
+   * Membuka modal untuk mengedit data pengguna
+   */
+  function editUser(email) {
+    if (typeof activeSessionToken !== 'undefined' && activeSessionToken && typeof authCall === 'function') {
+      authCall('getUserForAdmin', [activeSessionToken, email], function (u) {
+        const origEmail = document.getElementById('userOriginalEmail');
+        if (origEmail) origEmail.value = u.email;
+        const nameEl = document.getElementById('userName');
+        if (nameEl) nameEl.value = u.name;
+        const emailEl = document.getElementById('userEmail');
+        if (emailEl) emailEl.value = u.email;
+        const roleEl = document.getElementById('userRole');
+        if (roleEl) roleEl.value = u.role;
+        const pwd = document.getElementById('userPassword');
+        if (pwd) {
+          pwd.value = '';
+          pwd.required = false;
+        }
+        const title = document.getElementById('userModalTitle');
+        if (title) title.textContent = 'Edit User';
+        const err = document.getElementById('userFormError');
+        if (err) {
+          err.textContent = '';
+          err.classList.add('d-none');
+        }
+        const modalEl = document.getElementById('userModal');
+        if (modalEl) {
+          if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+          } else if (window.$ && $.fn.modal) {
+            $(modalEl).modal('show');
+          }
+        }
+      });
+    }
+  }
+
+  function escUserHtml(s) {
+    return String(s || '').replace(
+      /[&<>"']/g,
+      function (c) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[c];
+      }
+    );
+  }
+
+  // Bind fungsi ke global window
+  window.openUserModal = openUserModal;
+  window.saveUser = saveUser;
+  window.loadUsers = loadUsers;
+  window.editUser = editUser;
+</script>

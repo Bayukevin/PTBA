@@ -1254,6 +1254,77 @@ function setupInitialAdmin() {
   return 'Admin dibuat. Lihat execution log untuk password sementara.';
 }
 function passwordHash_(password,salt) { return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt+'|'+password, Utilities.Charset.UTF_8)); }
+function hashPassword(password, salt) { return passwordHash_(password, salt); }
+
+function addUser(userData) {
+  try {
+    if (!userData || typeof userData !== 'object') {
+      return { success: false, message: 'Data user tidak valid.' };
+    }
+    const name = String(userData.name || '').trim();
+    const email = String(userData.email || '').trim().toLowerCase();
+    const role = String(userData.role || 'Karyawan').trim();
+    const password = String(userData.password || '');
+
+    if (!name) {
+      return { success: false, message: 'Nama tidak boleh kosong.' };
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return { success: false, message: 'Format email tidak valid.' };
+    }
+    const validRoles = ['Admin', 'Karyawan', 'Customer'];
+    if (!validRoles.includes(role)) {
+      return { success: false, message: 'Role hanya boleh Admin, Karyawan, atau Customer.' };
+    }
+    if (!password || password.length < 8) {
+      return { success: false, message: 'Password minimal 8 karakter.' };
+    }
+
+    const sh = authUsersSheet_();
+    const existing = authFindUser_(email);
+    if (existing) {
+      return { success: false, message: 'Email sudah terdaftar' };
+    }
+
+    const salt = Utilities.getUuid();
+    const passwordHash = passwordHash_(password, salt);
+
+    // Urutan kolom: Name, Email, Role, PasswordHash, Salt, Active, GoogleSub, CreatedAt
+    sh.appendRow([
+      name,
+      email,
+      role,
+      passwordHash,
+      salt,
+      true,
+      '',
+      new Date()
+    ]);
+
+    return { success: true, message: 'User berhasil ditambahkan' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
+
+function getUsers() {
+  try {
+    const sh = authUsersSheet_();
+    const values = sh.getDataRange().getValues();
+    if (values.length <= 1) return [];
+    return values.slice(1).map(function (r) {
+      return {
+        name: String(r[0] || ''),
+        email: String(r[1] || ''),
+        role: String(r[2] || 'Customer'),
+        active: r[5] === true || String(r[5]).toLowerCase() === 'true'
+      };
+    });
+  } catch (error) {
+    return [];
+  }
+}
 function authFindUser_(email) {
   const sh=authUsersSheet_(), values=sh.getDataRange().getValues(); email=String(email||'').trim().toLowerCase();
   for(let i=1;i<values.length;i++) if(String(values[i][1]).trim().toLowerCase()===email) return {row:i+1,name:String(values[i][0]||''),email:String(values[i][1]),role:String(values[i][2]||'Customer'),hash:String(values[i][3]||''),salt:String(values[i][4]||''),active:values[i][5]===true||String(values[i][5]).toLowerCase()==='true',googleSub:String(values[i][6]||'')};
@@ -1264,7 +1335,7 @@ function loginWithPassword(email,password) { const u=authFindUser_(email); if(!u
 function validateSession(token) { const raw=CacheService.getScriptCache().get('auth:'+String(token||'')); if(!raw)return {success:false,message:'Sesi telah berakhir. Silakan login kembali.'}; const d=JSON.parse(raw),u=authFindUser_(d.email); if(!u||!u.active)return {success:false,message:'Akun tidak aktif.'}; return {success:true,token:token,user:{name:u.name,email:u.email,role:u.role},expiresIn:AUTH_SESSION_HOURS*3600}; }
 function logoutSession(token) { if(token)CacheService.getScriptCache().remove('auth:'+String(token)); return {success:true}; }
 function requireAdmin_(token) { const s=validateSession(token); if(!s.success)throw new Error('Sesi tidak valid. Silakan login kembali.'); if(s.user.role!=='Admin')throw new Error('Akses ditolak. Hanya Admin yang dapat mengelola pengguna.'); return s.user; }
-function listUsers(token) { requireAdmin_(token); const v=authUsersSheet_().getDataRange().getValues(); return v.slice(1).map(r=>({name:String(r[0]||''),email:String(r[1]||''),role:String(r[2]||'Customer'),active:r[5]===true||String(r[5]).toLowerCase()==='true'})); }
+function listUsers(token) { requireAdmin_(token); return getUsers(); }
 function getUserForAdmin(token,email) { requireAdmin_(token); const u=authFindUser_(email); if(!u)throw new Error('User tidak ditemukan.'); return {name:u.name,email:u.email,role:u.role,active:u.active}; }
 function saveUserForAdmin(token,d) { requireAdmin_(token); d=d||{}; const name=String(d.name||'').trim(),email=String(d.email||'').trim().toLowerCase(),role=String(d.role||''); if(!name||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!['Admin','Karyawan','Customer'].includes(role))return {success:false,message:'Periksa nama, email, dan role.'}; const sh=authUsersSheet_(),existing=d.originalEmail?authFindUser_(d.originalEmail):null,duplicate=authFindUser_(email); if(duplicate&&(!existing||duplicate.email!==existing.email))return {success:false,message:'Email sudah terdaftar.'}; const password=String(d.password||''); if(!existing&&password.length<8)return {success:false,message:'Password minimal 8 karakter.'}; if(existing){sh.getRange(existing.row,1,1,3).setValues([[name,email,role]]);if(password){const salt=Utilities.getUuid();sh.getRange(existing.row,4,1,2).setValues([[passwordHash_(password,salt),salt]]);}if(email!==existing.email)CacheService.getScriptCache().removeAll([]);}else{const salt=Utilities.getUuid();sh.appendRow([name,email,role,passwordHash_(password,salt),salt,true,'',new Date()]);}return {success:true}; }
 function setUserActive(token,email,active) { requireAdmin_(token); const u=authFindUser_(email); if(!u)throw new Error('User tidak ditemukan.'); authUsersSheet_().getRange(u.row,6).setValue(!!active); return {success:true}; }
