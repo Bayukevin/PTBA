@@ -1520,9 +1520,121 @@ function loginWithGoogle(credential) {
 
   }
 
+  // Validasi status akun sebelum membuat sesi
+  if (!user || !user.active) {
+    return {
+      success: false,
+      message: 'Akun Anda tidak aktif'
+    };
+  }
 
   return createAuthSession_(user);
 }
+
+/**
+ * Endpoint alternatif googleLogin sesuai spesifikasi PRD
+ * Menerima payload langsung { email, name, googleSub }
+ */
+function googleLogin(data) {
+  try {
+    if (!data || typeof data !== 'object') {
+      return { success: false, message: 'Data Google login tidak valid.' };
+    }
+
+    const email = String(data.email || '').trim().toLowerCase();
+    const name = String(data.name || '').trim();
+    const googleSub = String(data.googleSub || '').trim();
+
+    if (!email) {
+      return { success: false, message: 'Email Google tidak ditemukan' };
+    }
+
+    let user = findUserByEmail(email);
+
+    if (!user) {
+      user = createGoogleCustomer(name, email, googleSub);
+    } else {
+      if (!user.googleSub && googleSub) {
+        authUsersSheet_().getRange(user.row, 7).setValue(googleSub);
+        user.googleSub = googleSub;
+      }
+      if (user.googleSub && googleSub && user.googleSub !== googleSub) {
+        return { success: false, message: 'Akun Google tidak sesuai.' };
+      }
+    }
+
+    if (!user.active) {
+      return { success: false, message: 'Akun Anda tidak aktif' };
+    }
+
+    return createAuthSession_(user);
+  } catch (error) {
+    return { success: false, message: 'Login Google gagal: ' + error.message };
+  }
+}
+
+function findUserByEmail(email) {
+  return authFindUser_(email);
+}
+
+function createGoogleCustomer(name, email, googleSub) {
+  const sh = authUsersSheet_();
+  sh.appendRow([
+    name || email.split('@')[0],
+    email,
+    'Customer',
+    '',
+    '',
+    true,
+    googleSub || '',
+    new Date()
+  ]);
+  return authFindUser_(email);
+}
+
+/**
+ * Login langsung menggunakan akun Google yang sedang aktif di browser
+ * Bebas dari issue origin_mismatch Google Cloud OAuth
+ */
+function loginWithActiveGoogleAccount() {
+  try {
+    let email = '';
+    try {
+      email = Session.getActiveUser().getEmail();
+    } catch (e) {
+      email = '';
+    }
+
+    if (!email) {
+      return {
+        success: false,
+        message: 'Tidak dapat mendeteksi akun Google aktif. Pastikan Anda sudah login ke browser dengan akun Google.'
+      };
+    }
+
+    email = String(email).trim().toLowerCase();
+    let user = authFindUser_(email);
+
+    if (!user) {
+      user = createGoogleCustomer(email.split('@')[0], email, '');
+    }
+
+    if (!user || !user.active) {
+      return {
+        success: false,
+        message: 'Akun Anda tidak aktif'
+      };
+    }
+
+    return createAuthSession_(user);
+  } catch (err) {
+    return {
+      success: false,
+      message: 'Gagal login Google: ' + err.message
+    };
+  }
+}
+
 function getGoogleClientId(){return PropertiesService.getScriptProperties().getProperty('GOOGLE_CLIENT_ID')||'';}
 
 
