@@ -4,7 +4,7 @@ const SHEETS = {
   HIST_TX: 'Histori_Transaksi',
   LOGS: 'Log_Upload',
   APL_SERVICE: 'DB_APL_Service',
-  PO_REPORT: 'DB_PO_Report' // Sheet baru untuk PO
+  PO_REPORT: 'DB_PO'
 };
 
 const SPREADSHEET_ID = "1Y4lvjoF2nH_mzyByhsfdLDpiUtcs9yaoN_nGigc19cw";
@@ -71,6 +71,8 @@ function checkAndSetupDatabase() {
     let sheet = ss.getSheetByName(struct.name);
     if (!sheet) {
       sheet = ss.insertSheet(struct.name);
+    }
+    if (sheet.getLastRow() === 0 || sheet.getRange(1, 1).getValue() === '') {
       sheet.getRange(1, 1, 1, struct.headers.length).setValues([struct.headers])
            .setFontWeight('bold')
            .setBackground('#C8102E')
@@ -78,6 +80,35 @@ function checkAndSetupDatabase() {
       sheet.setFrozenRows(1);
     }
   });
+}
+
+/**
+ * Jalankan fungsi ini dari editor Apps Script untuk mengisi header sheet DB_PO
+ */
+function setupDBPOHeaders() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const headers = [
+    'Release status', 'PO history/release documentation', 'Purchasing Document', 'Item',
+    'Deletion Indicator', 'Release indicator', 'Document Date', 'Vendor/supplying',
+    'Plant', 'Material', 'Short Text', 'Order Quantity', 'Order Unit', 'Net price',
+    'Currency', 'Still to be delivered (qty)', 'Still to be delivered (value)',
+    'Storage Location', 'No. of Positions', 'Still to be invoiced (qty)',
+    'Still to be invoiced (val.)', 'Net Order Value', 'Requisitioner',
+    'Qty Released to Date', 'Plant 2', 'Purchasing Doc. Type'
+  ];
+
+  let sheet = ss.getSheetByName(SHEETS.PO_REPORT) || ss.getSheetByName('DB_PO');
+  if (!sheet) {
+    sheet = ss.insertSheet('DB_PO');
+  }
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+       .setFontWeight('bold')
+       .setBackground('#C8102E')
+       .setFontColor('#FFFFFF');
+  sheet.setFrozenRows(1);
+
+  Logger.log('Header DB_PO berhasil dipasang (' + headers.length + ' kolom).');
 }
 
 function calculateSOHStatus(soh, minQty, maxQty) {
@@ -681,17 +712,27 @@ function getAPLServiceData() {
 function getPOReportData() {
   try {
     const ss = SpreadsheetApp.openById("1Y4lvjoF2nH_mzyByhsfdLDpiUtcs9yaoN_nGigc19cw");
-    const sheet = ss.getSheetByName(SHEETS.PO_REPORT);
+    let sheet = ss.getSheetByName(SHEETS.PO_REPORT) || ss.getSheetByName('DB_PO');
+    if (sheet && sheet.getLastRow() <= 1) {
+      const alt = ss.getSheetByName('DB_PO') || ss.getSheetByName('DB_PO_Report');
+      if (alt && alt.getLastRow() > 1) sheet = alt;
+    }
 
     if (!sheet) {
+      Logger.log("ERROR: Sheet PO tidak ditemukan!");
       return {
         items: [],
         kpi: { totalPO: 0, openPO: 0, closedPO: 0, totalVal: 0, openVal: 0 }
       };
     }
 
+    Logger.log("Sheet dibaca: " + sheet.getName() + " | LastRow: " + sheet.getLastRow());
+
     const data = sheet.getDataRange().getValues();
+    Logger.log("Data total baris: " + data.length);
+
     if (data.length <= 1) {
+      Logger.log("Data kosong atau hanya header.");
       return {
         items: [],
         kpi: { totalPO: 0, openPO: 0, closedPO: 0, totalVal: 0, openVal: 0 }
@@ -732,35 +773,37 @@ function getPOReportData() {
       return {
         no: index + 1,
         poStatus: poStatus,
-        releaseStatus: row[0] || '',
-        poHistoryDoc: row[1] || '',
-        purchasingDoc: row[2] || '',
-        item: row[3] || '',
-        deletionIndicator: row[4] || '',
+        releaseStatus: String(row[0] || ''),
+        poHistoryDoc: String(row[1] || ''),
+        purchasingDoc: String(row[2] || ''),
+        item: String(row[3] || ''),
+        deletionIndicator: String(row[4] || ''),
         releaseIndicator: relInd,
         releaseStatusText: releaseStatusText,
-        docDate: row[6] ? Utilities.formatDate(new Date(row[6]), Session.getScriptTimeZone(), "yyyy-MM-dd") : '',
-        vendor: row[7] || '',
-        plant: row[8] || '',
-        material: row[9] || '',
-        shortText: row[10] || '',
+        docDate: (row[6] && !isNaN(new Date(row[6]).getTime())) ? Utilities.formatDate(new Date(row[6]), Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[6] || ''),
+        vendor: String(row[7] || ''),
+        plant: String(row[8] || ''),
+        material: String(row[9] || ''),
+        shortText: String(row[10] || ''),
         orderQty: parseFloat(row[11]) || 0,
-        orderUnit: row[12] || '',
+        orderUnit: String(row[12] || ''),
         netPrice: parseFloat(row[13]) || 0,
-        currency: row[14] || '',
+        currency: String(row[14] || ''),
         stillDelivQty: stillDelivQty,
         stillDelivVal: stillDelivVal,
-        storageLoc: row[17] || '',
-        noOfPositions: row[18] || '',
+        storageLoc: String(row[17] || ''),
+        noOfPositions: String(row[18] || ''),
         stillInvoiceQty: parseFloat(row[19]) || 0,
         stillInvoiceVal: parseFloat(row[20]) || 0,
         netOrderVal: netOrderVal,
-        requisitioner: row[22] || '',
-        qtyReleasedToDate: row[23] || '',
-        plant2: row[24] || '',
-        purchasingDocType: row[25] || ''
+        requisitioner: String(row[22] || ''),
+        qtyReleasedToDate: String(row[23] || ''),
+        plant2: String(row[24] || ''),
+        purchasingDocType: String(row[25] || '')
       };
     });
+
+    Logger.log("Sukses mapping: " + items.length + " item. KPI: " + JSON.stringify(kpi));
 
     return {
       items: items,
@@ -1159,6 +1202,12 @@ function processExcelUpload(formObject) {
           const rowsToInsert = sourceData.slice(1);
           const numRows = rowsToInsert.length;
           const numCols = rowsToInsert[0].length;
+
+          if (targetSheet.getLastRow() === 0 || targetSheet.getRange(1, 1).getValue() === '') {
+            targetSheet.getRange(1, 1, 1, sourceData[0].length).setValues([sourceData[0]])
+                       .setFontWeight('bold');
+            targetSheet.setFrozenRows(1);
+          }
 
           targetSheet.getRange(2, 1, numRows, numCols).setValues(rowsToInsert);
           logs.push(`Sheet "${sheetName}": Berhasil diperbarui (${numRows} baris data disalin).`);

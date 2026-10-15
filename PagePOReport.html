@@ -262,7 +262,11 @@
     google.script.run
       .withSuccessHandler(function (res) {
         hideLoading();
-        if (!res) return;
+        console.log('PO Data loaded:', res);
+        if (!res) {
+          alert('Data PO tidak diterima dari server.');
+          return;
+        }
 
         rawPOData = res.items || [];
 
